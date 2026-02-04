@@ -23,6 +23,7 @@ import {
   Numbers as NumbersIcon,
   Contacts as ContactsIcon,
   FolderOpen as FolderOpenIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { useCatalogs } from '../context/CatalogsContext';
 import { useReferenceEntries } from '../context/ReferenceEntriesContext';
@@ -517,6 +518,8 @@ const CatalogRefFieldInput = ({
   getEntriesByCatalog,
   getCatalog,
 }: CatalogRefFieldInputProps) => {
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
   const targetCatalog = fieldDef.targetCatalogId
     ? getCatalog(fieldDef.targetCatalogId)
     : undefined;
@@ -526,6 +529,7 @@ const CatalogRefFieldInput = ({
     : [];
 
   const isMultiple = targetCatalog?.isMultiple || fieldDef.multiple;
+  const canCreate = targetCatalog?.isEditable;
 
   // Находим выбранные записи
   const selectedEntries = catalogEntries.filter((entry) => {
@@ -539,89 +543,158 @@ const CatalogRefFieldInput = ({
     ? `${fieldDef.name} (${targetCatalog.name})`
     : fieldDef.name;
 
+  const handleCreateNew = () => {
+    setCreateDialogOpen(true);
+  };
+
+  const handleCreated = (newEntryId: string) => {
+    if (isMultiple) {
+      const currentIds = Array.isArray(value) ? value : value ? [value as string] : [];
+      onChange([...currentIds, newEntryId]);
+    } else {
+      onChange(newEntryId);
+    }
+  };
+
+  const createNewLink = canCreate ? (
+    <Typography
+      component="span"
+      variant="caption"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleCreateNew();
+      }}
+      sx={{
+        color: '#1976D2',
+        cursor: 'pointer',
+        fontWeight: 500,
+        textDecoration: 'underline',
+        '&:hover': { color: '#1565C0' },
+      }}
+    >
+      создайте новую
+    </Typography>
+  ) : null;
+
   const noOptionsMessage = !targetCatalog ? (
     <Typography variant="body2" sx={{ color: '#d32f2f', p: 1 }}>
       Каталог удалён
     </Typography>
   ) : catalogEntries.length === 0 ? (
-    <Typography variant="body2" sx={{ color: '#999', p: 1 }}>
-      Нет записей в каталоге "{targetCatalog.name}"
-    </Typography>
+    <Box sx={{ textAlign: 'center', py: 1 }}>
+      <Typography variant="body2" sx={{ color: '#999', mb: canCreate ? 1 : 0 }}>
+        Нет записей в каталоге "{targetCatalog.name}"
+      </Typography>
+      {canCreate && (
+        <Button
+          startIcon={<AddIcon />}
+          onClick={handleCreateNew}
+          size="small"
+          sx={{
+            color: '#1976D2',
+            textTransform: 'none',
+            '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.08)' },
+          }}
+        >
+          Создать новую запись
+        </Button>
+      )}
+    </Box>
   ) : (
     'Не найдено'
   );
 
-  if (isMultiple) {
-    return (
-      <Autocomplete
-        multiple
-        options={catalogEntries}
-        value={selectedEntries}
-        onChange={(_, newValue) => onChange(newValue.map((e) => e.id))}
-        getOptionLabel={(option) => option.displayValue}
-        isOptionEqualToValue={(option, val) => option.id === val.id}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label={catalogLabel}
-            size="small"
-            required={fieldDef.required}
-            InputProps={{
-              ...params.InputProps,
-              startAdornment: (
-                <>
-                  <InputAdornment position="start">
-                    <FolderOpenIcon sx={{ color: '#999', fontSize: 20 }} />
-                  </InputAdornment>
-                  {params.InputProps.startAdornment}
-                </>
-              ),
+  const listboxComponent = canCreate
+    ? (listboxProps: React.HTMLAttributes<HTMLUListElement>) => (
+        <Box {...listboxProps} component="ul">
+          <Box
+            sx={{
+              px: 2,
+              py: 1.5,
+              borderBottom: '1px solid #e0e0e0',
+              backgroundColor: '#fafafa',
+              position: 'sticky',
+              top: 0,
+              zIndex: 1,
             }}
-          />
-        )}
-        renderTags={(tagValue, getTagProps) =>
-          tagValue.map((option, index) => (
-            <Chip
-              {...getTagProps({ index })}
-              key={option.id}
-              label={option.displayValue}
-              size="small"
-              sx={{ backgroundColor: '#f3e5f5', color: '#7B1FA2' }}
-            />
-          ))
-        }
-        noOptionsText={noOptionsMessage}
-      />
-    );
-  }
+          >
+            <Typography variant="caption" sx={{ color: '#666' }}>
+              Выберите запись или {createNewLink}
+            </Typography>
+          </Box>
+          {listboxProps.children}
+        </Box>
+      )
+    : undefined;
+
+  const autocompleteProps = {
+    getOptionLabel: (option: CatalogEntry) => option.displayValue,
+    isOptionEqualToValue: (option: CatalogEntry, val: CatalogEntry) => option.id === val.id,
+    noOptionsText: noOptionsMessage,
+    ...(listboxComponent ? { ListboxComponent: listboxComponent } : {}),
+  };
+
+  const inputProps = (params: any) => (
+    <TextField
+      {...params}
+      label={catalogLabel}
+      size="small"
+      required={fieldDef.required}
+      InputProps={{
+        ...params.InputProps,
+        startAdornment: (
+          <>
+            <InputAdornment position="start">
+              <FolderOpenIcon sx={{ color: '#999', fontSize: 20 }} />
+            </InputAdornment>
+            {params.InputProps.startAdornment}
+          </>
+        ),
+      }}
+    />
+  );
 
   return (
-    <Autocomplete
-      options={catalogEntries}
-      value={selectedEntries[0] || null}
-      onChange={(_, newValue) => onChange(newValue ? newValue.id : '')}
-      getOptionLabel={(option) => option.displayValue}
-      isOptionEqualToValue={(option, val) => option.id === val.id}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={catalogLabel}
-          size="small"
-          required={fieldDef.required}
-          InputProps={{
-            ...params.InputProps,
-            startAdornment: (
-              <>
-                <InputAdornment position="start">
-                  <FolderOpenIcon sx={{ color: '#999', fontSize: 20 }} />
-                </InputAdornment>
-                {params.InputProps.startAdornment}
-              </>
-            ),
-          }}
+    <>
+      {isMultiple ? (
+        <Autocomplete
+          multiple
+          options={catalogEntries}
+          value={selectedEntries}
+          onChange={(_, newValue) => onChange(newValue.map((e) => e.id))}
+          {...autocompleteProps}
+          renderInput={inputProps}
+          renderTags={(tagValue, getTagProps) =>
+            tagValue.map((option, index) => (
+              <Chip
+                {...getTagProps({ index })}
+                key={option.id}
+                label={option.displayValue}
+                size="small"
+                sx={{ backgroundColor: '#f3e5f5', color: '#7B1FA2' }}
+              />
+            ))
+          }
+        />
+      ) : (
+        <Autocomplete
+          options={catalogEntries}
+          value={selectedEntries[0] || null}
+          onChange={(_, newValue) => onChange(newValue ? newValue.id : '')}
+          {...autocompleteProps}
+          renderInput={inputProps}
         />
       )}
-      noOptionsText={noOptionsMessage}
-    />
+
+      {canCreate && fieldDef.targetCatalogId && (
+        <CreateCatalogEntryDialog
+          open={createDialogOpen}
+          onClose={() => setCreateDialogOpen(false)}
+          catalogId={fieldDef.targetCatalogId}
+          onCreate={handleCreated}
+        />
+      )}
+    </>
   );
 };
