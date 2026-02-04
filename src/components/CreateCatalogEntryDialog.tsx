@@ -525,7 +525,7 @@ const CatalogRefFieldInput = ({
     ? getEntriesByCatalog(fieldDef.targetCatalogId)
     : [];
 
-  const isMultiple = fieldDef.multiple;
+  const isMultiple = targetCatalog?.isMultiple || fieldDef.multiple;
 
   // Находим выбранные записи
   const selectedEntries = catalogEntries.filter((entry) => {

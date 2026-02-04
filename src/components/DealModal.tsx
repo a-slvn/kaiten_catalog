@@ -54,7 +54,7 @@ export const DealModal = ({
   onClose,
 }: DealModalProps) => {
   const { getEntry } = useReferenceEntries();
-  const { getEntry: getCatalogEntry } = useCatalogs();
+  const { getEntry: getCatalogEntry, getCatalog } = useCatalogs();
   const { fieldDefinitions } = useCustomFields();
   const [isFavorite, setIsFavorite] = useState(false);
   const [comment, setComment] = useState('');
@@ -615,15 +615,30 @@ export const DealModal = ({
                           catalogId={field.catalogId}
                           catalogName={field.catalogName || field.name}
                           value={(() => {
+                            const catalog = field.catalogId ? getCatalog(field.catalogId) : undefined;
+                            const isMulti = catalog?.isMultiple || field.isCatalogMultiple;
                             const val = fieldValues[field.id];
-                            if (val === undefined || val === null) return field.isCatalogMultiple ? [] : '';
+                            if (val === undefined || val === null) return isMulti ? [] : '';
                             if (Array.isArray(val)) return val;
                             return String(val);
                           })()}
                           onChange={(val) => handleFieldValueChange(field.id, val)}
-                          multiple={field.isCatalogMultiple}
-                          onCreateNew={() => handleCreateNewCatalogEntry(field.id, field.catalogId!)}
-                          onEdit={(entryId, catId) => handleEditCatalogEntry(entryId, catId)}
+                          multiple={(() => {
+                            const catalog = field.catalogId ? getCatalog(field.catalogId) : undefined;
+                            return catalog?.isMultiple || field.isCatalogMultiple;
+                          })()}
+                          onCreateNew={(() => {
+                            const catalog = field.catalogId ? getCatalog(field.catalogId) : undefined;
+                            return catalog?.isEditable
+                              ? () => handleCreateNewCatalogEntry(field.id, field.catalogId!)
+                              : undefined;
+                          })()}
+                          onEdit={(() => {
+                            const catalog = field.catalogId ? getCatalog(field.catalogId) : undefined;
+                            return catalog?.isEditable
+                              ? (entryId: string, catId: string) => handleEditCatalogEntry(entryId, catId)
+                              : undefined;
+                          })()}
                         />
                       </Box>
                     );

@@ -75,6 +75,8 @@ export const CreateCatalogDialog = ({
   const { fieldDefinitions } = useCustomFields();
 
   const [catalogName, setCatalogName] = useState('');
+  const [isMultiple, setIsMultiple] = useState(false);
+  const [isEditable, setIsEditable] = useState(false);
   const [fields, setFields] = useState<FieldFormData[]>([createEmptyField()]);
 
   // Получаем список справочников для выбора
@@ -86,6 +88,8 @@ export const CreateCatalogDialog = ({
       const catalog = getCatalog(editingCatalogId);
       if (catalog) {
         setCatalogName(catalog.name);
+        setIsMultiple(catalog.isMultiple || false);
+        setIsEditable(catalog.isEditable || false);
         setFields(
           catalog.fields.map((f) => ({
             id: f.id,
@@ -101,6 +105,8 @@ export const CreateCatalogDialog = ({
       }
     } else {
       setCatalogName('');
+      setIsMultiple(false);
+      setIsEditable(false);
       setFields([createEmptyField()]);
     }
   }, [editingCatalogId, getCatalog, open]);
@@ -205,11 +211,15 @@ export const CreateCatalogDialog = ({
       updateCatalog(editingCatalogId, {
         name: catalogName.trim(),
         fields: catalogFields,
+        isMultiple,
+        isEditable,
       });
     } else {
       addCatalog({
         name: catalogName.trim(),
         fields: catalogFields,
+        isMultiple,
+        isEditable,
       });
     }
 
@@ -232,6 +242,30 @@ export const CreateCatalogDialog = ({
             required
             sx={{ mb: 3 }}
           />
+
+          {/* Опции каталога */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 3 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={isMultiple}
+                  onChange={(e) => setIsMultiple(e.target.checked)}
+                  size="small"
+                />
+              }
+              label="Множественный выбор (можно выбрать несколько записей)"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={isEditable}
+                  onChange={(e) => setIsEditable(e.target.checked)}
+                  size="small"
+                />
+              }
+              label="Разрешить редактирование записей"
+            />
+          </Box>
 
           {/* Поля каталога */}
           <Typography variant="subtitle2" sx={{ mb: 2, color: '#666' }}>
@@ -344,38 +378,26 @@ export const CreateCatalogDialog = ({
 
                   {/* Выбор каталога для catalog_ref */}
                   {field.type === 'catalog_ref' && (
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                      <FormControl size="small" sx={{ minWidth: 200 }}>
-                        <InputLabel>Каталог</InputLabel>
-                        <Select
-                          value={field.targetCatalogId}
-                          label="Каталог"
-                          onChange={(e) => handleFieldChange(index, 'targetCatalogId', e.target.value)}
-                        >
-                          {catalogs.length === 0 ? (
-                            <MenuItem disabled value="">
-                              Нет доступных каталогов
+                    <FormControl size="small" sx={{ minWidth: 200 }}>
+                      <InputLabel>Каталог</InputLabel>
+                      <Select
+                        value={field.targetCatalogId}
+                        label="Каталог"
+                        onChange={(e) => handleFieldChange(index, 'targetCatalogId', e.target.value)}
+                      >
+                        {catalogs.length === 0 ? (
+                          <MenuItem disabled value="">
+                            Нет доступных каталогов
+                          </MenuItem>
+                        ) : (
+                          catalogs.map((cat) => (
+                            <MenuItem key={cat.id} value={cat.id}>
+                              {cat.name}
                             </MenuItem>
-                          ) : (
-                            catalogs.map((cat) => (
-                              <MenuItem key={cat.id} value={cat.id}>
-                                {cat.name}
-                              </MenuItem>
-                            ))
-                          )}
-                        </Select>
-                      </FormControl>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={field.multiple}
-                            onChange={(e) => handleFieldChange(index, 'multiple', e.target.checked)}
-                            size="small"
-                          />
-                        }
-                        label="Множественный выбор"
-                      />
-                    </Box>
+                          ))
+                        )}
+                      </Select>
+                    </FormControl>
                   )}
                 </Box>
 

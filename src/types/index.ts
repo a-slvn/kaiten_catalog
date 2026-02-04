@@ -175,6 +175,8 @@ export interface Catalog {
   id: string;
   name: string;
   fields: CatalogFieldDef[];
+  isMultiple?: boolean;           // Можно ли выбрать несколько записей из этого каталога
+  isEditable?: boolean;           // Можно ли редактировать записи каталога из карточки
   createdAt: string;
   updatedAt: string;
 }

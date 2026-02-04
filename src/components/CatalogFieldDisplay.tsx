@@ -164,25 +164,27 @@ export const CatalogFieldDisplay = ({
               zIndex: 1,
             }}
           >
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEditEntry();
-              }}
-              sx={{
-                p: 0.5,
-                backgroundColor: '#fff',
-                border: '1px solid #e0e0e0',
-                '&:hover': {
-                  color: '#1976D2',
-                  borderColor: '#1976D2',
-                  backgroundColor: 'rgba(25, 118, 210, 0.04)',
-                },
-              }}
-            >
-              <EditIcon sx={{ fontSize: '1rem' }} />
-            </IconButton>
+            {onEdit && (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditEntry();
+                }}
+                sx={{
+                  p: 0.5,
+                  backgroundColor: '#fff',
+                  border: '1px solid #e0e0e0',
+                  '&:hover': {
+                    color: '#1976D2',
+                    borderColor: '#1976D2',
+                    backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                  },
+                }}
+              >
+                <EditIcon sx={{ fontSize: '1rem' }} />
+              </IconButton>
+            )}
             <IconButton
               size="small"
               onClick={(e) => {

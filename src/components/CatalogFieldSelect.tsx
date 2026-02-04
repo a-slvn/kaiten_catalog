@@ -105,25 +105,28 @@ export const CatalogFieldSelect = ({
       >
         <FolderIcon sx={{ fontSize: 40, color: '#bbb', mb: 1 }} />
         <Typography variant="body2" sx={{ color: '#999', mb: 1.5 }}>
-          Нет записей в каталоге "{catalog?.name || 'Каталог'}". Создайте первую запись.
+          Нет записей в каталоге "{catalog?.name || 'Каталог'}".
+          {onCreateNew ? ' Создайте первую запись.' : ''}
         </Typography>
-        <Button
-          startIcon={<AddIcon />}
-          onClick={handleCreateNew}
-          size="small"
-          variant="outlined"
-          sx={{
-            color: '#1976D2',
-            borderColor: '#1976D2',
-            textTransform: 'none',
-            '&:hover': {
-              borderColor: '#1565C0',
-              backgroundColor: 'rgba(25, 118, 210, 0.04)',
-            },
-          }}
-        >
-          Создать запись
-        </Button>
+        {onCreateNew && (
+          <Button
+            startIcon={<AddIcon />}
+            onClick={handleCreateNew}
+            size="small"
+            variant="outlined"
+            sx={{
+              color: '#1976D2',
+              borderColor: '#1976D2',
+              textTransform: 'none',
+              '&:hover': {
+                borderColor: '#1565C0',
+                backgroundColor: 'rgba(25, 118, 210, 0.04)',
+              },
+            }}
+          >
+            Создать запись
+          </Button>
+        )}
       </Box>
     );
   }
@@ -149,20 +152,22 @@ export const CatalogFieldSelect = ({
           <Typography variant="body2" sx={{ color: '#999', mb: 1 }}>
             Нет записей
           </Typography>
-          <Button
-            startIcon={<AddIcon />}
-            onClick={handleCreateNew}
-            size="small"
-            sx={{
-              color: '#1976D2',
-              textTransform: 'none',
-              '&:hover': {
-                backgroundColor: 'rgba(25, 118, 210, 0.08)',
-              },
-            }}
-          >
-            Создать новую запись
-          </Button>
+          {onCreateNew && (
+            <Button
+              startIcon={<AddIcon />}
+              onClick={handleCreateNew}
+              size="small"
+              sx={{
+                color: '#1976D2',
+                textTransform: 'none',
+                '&:hover': {
+                  backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                },
+              }}
+            >
+              Создать новую запись
+            </Button>
+          )}
         </Box>
       }
       renderInput={(params) => (
@@ -352,27 +357,33 @@ export const CatalogFieldSelect = ({
             }}
           >
             <Typography variant="caption" sx={{ color: '#666' }}>
-              Выберите запись или{' '}
-              <Typography
-                component="span"
-                variant="caption"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleCreateNew();
-                }}
-                sx={{
-                  color: '#1976D2',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  textDecoration: 'underline',
-                  '&:hover': {
-                    color: '#1565C0',
-                  },
-                }}
-              >
-                создайте новую
-              </Typography>
+              {onCreateNew ? (
+                <>
+                  Выберите запись или{' '}
+                  <Typography
+                    component="span"
+                    variant="caption"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCreateNew();
+                    }}
+                    sx={{
+                      color: '#1976D2',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      textDecoration: 'underline',
+                      '&:hover': {
+                        color: '#1565C0',
+                      },
+                    }}
+                  >
+                    создайте новую
+                  </Typography>
+                </>
+              ) : (
+                'Выберите запись'
+              )}
             </Typography>
           </Box>
           {listboxProps.children}

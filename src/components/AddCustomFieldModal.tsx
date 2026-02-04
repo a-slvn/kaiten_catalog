@@ -394,62 +394,68 @@ export const AddCustomFieldModal = ({
           />
         </Box>
 
-        <Box sx={{ mb: 2 }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={usersCanAddValues}
-                onChange={(e) => setUsersCanAddValues(e.target.checked)}
-                sx={{
-                  color: '#7B1FA2',
-                  '&.Mui-checked': { color: '#7B1FA2' },
-                }}
-              />
-            }
-            label="Пользователи могут добавлять новые значения"
-          />
-        </Box>
-
-        <Box sx={{ mb: 2 }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={valuesCanHaveColor}
-                onChange={(e) => setValuesCanHaveColor(e.target.checked)}
-                sx={{
-                  color: '#7B1FA2',
-                  '&.Mui-checked': { color: '#7B1FA2' },
-                }}
-              />
-            }
-            label="Значениям можно добавлять цвет"
-          />
-        </Box>
-
-        {/* Color palette */}
-        {valuesCanHaveColor && (
-          <Box sx={{ mb: 3, ml: 4 }}>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, maxWidth: 320 }}>
-              {COLOR_PALETTE.map((color) => (
-                <Box
-                  key={color}
-                  onClick={() => setSelectedColor(color)}
+        {fieldType !== 'catalog' && (
+          <Box sx={{ mb: 2 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={usersCanAddValues}
+                  onChange={(e) => setUsersCanAddValues(e.target.checked)}
                   sx={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    backgroundColor: color,
-                    cursor: 'pointer',
-                    border: selectedColor === color ? '3px solid #7B1FA2' : '2px solid transparent',
-                    transition: 'border 0.2s',
-                    '&:hover': {
-                      border: '2px solid #9E9E9E',
-                    },
+                    color: '#7B1FA2',
+                    '&.Mui-checked': { color: '#7B1FA2' },
                   }}
                 />
-              ))}
-            </Box>
+              }
+              label="Пользователи могут добавлять новые значения"
+            />
           </Box>
+        )}
+
+        {fieldType !== 'catalog' && (
+          <>
+            <Box sx={{ mb: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={valuesCanHaveColor}
+                    onChange={(e) => setValuesCanHaveColor(e.target.checked)}
+                    sx={{
+                      color: '#7B1FA2',
+                      '&.Mui-checked': { color: '#7B1FA2' },
+                    }}
+                  />
+                }
+                label="Значениям можно добавлять цвет"
+              />
+            </Box>
+
+            {/* Color palette */}
+            {valuesCanHaveColor && (
+              <Box sx={{ mb: 3, ml: 4 }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, maxWidth: 320 }}>
+                  {COLOR_PALETTE.map((color) => (
+                    <Box
+                      key={color}
+                      onClick={() => setSelectedColor(color)}
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        backgroundColor: color,
+                        cursor: 'pointer',
+                        border: selectedColor === color ? '3px solid #7B1FA2' : '2px solid transparent',
+                        transition: 'border 0.2s',
+                        '&:hover': {
+                          border: '2px solid #9E9E9E',
+                        },
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+          </>
         )}
 
         {/* Reference fields section - only for 'reference' type */}
@@ -695,20 +701,6 @@ export const AddCustomFieldModal = ({
                 )}
               </Select>
             </FormControl>
-
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={isCatalogMultiple}
-                  onChange={(e) => setIsCatalogMultiple(e.target.checked)}
-                  sx={{
-                    color: '#7B1FA2',
-                    '&.Mui-checked': { color: '#7B1FA2' },
-                  }}
-                />
-              }
-              label="Множественный выбор"
-            />
           </>
         )}
 
