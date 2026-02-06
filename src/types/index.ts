@@ -168,6 +168,7 @@ export interface CatalogFieldDef {
   multiple?: boolean;           // Множественный выбор для reference и catalog_ref
   targetCatalogId?: string;     // Для type='catalog_ref' - ID целевого каталога
   targetCatalogName?: string;   // Название целевого каталога (для отображения)
+  customFieldId?: string;       // ID пользовательского поля (если поле из существующих)
 }
 
 // Каталог (схема)

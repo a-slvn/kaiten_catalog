@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -16,14 +16,21 @@ import {
   FormControlLabel,
   Checkbox,
   Paper,
+  Tooltip,
+  Menu,
+  ListItemIcon,
+  ListItemText,
+  Autocomplete,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   DragIndicator as DragIndicatorIcon,
+  ArrowDropDown as ArrowDropDownIcon,
+  Link as LinkIcon,
 } from '@mui/icons-material';
 import { useCatalogs } from '../context/CatalogsContext';
-import { useCustomFields } from '../context/CustomFieldsContext';
+import { useCustomFields, CustomFieldDefinition } from '../context/CustomFieldsContext';
 import { CatalogFieldDef, CatalogFieldType } from '../types';
 
 interface CreateCatalogDialogProps {
@@ -53,9 +60,43 @@ interface FieldFormData {
   referenceId: string;
   multiple: boolean;
   targetCatalogId: string;
+  // Для полей из пользовательских полей
+  isCustomFieldSelector?: boolean;  // Режим выбора из существующих пользовательских полей
+  customFieldId?: string;           // ID выбранного пользовательского поля
+  customFieldType?: string;         // Тип для фильтрации пользовательских полей
 }
 
-const createEmptyField = (): FieldFormData => ({
+// Типы пользовательских полей для селектора
+const CUSTOM_FIELD_TYPE_OPTIONS: { value: string; label: string; catalogType: CatalogFieldType }[] = [
+  { value: 'string', label: 'Строка', catalogType: 'text' },
+  { value: 'number', label: 'Число', catalogType: 'numeric' },
+  { value: 'select', label: 'Селект', catalogType: 'select' },
+  { value: 'multiselect', label: 'Мультиселект', catalogType: 'multiselect' },
+  { value: 'reference', label: 'Справочник', catalogType: 'reference' },
+  { value: 'catalog', label: 'Каталог', catalogType: 'catalog_ref' },
+];
+
+// Маппинг типов CustomFieldDefinition -> CatalogFieldType
+const mapCustomFieldType = (type: CustomFieldDefinition['type']): CatalogFieldType => {
+  switch (type) {
+    case 'string':
+      return 'text';
+    case 'number':
+      return 'numeric';
+    case 'catalog':
+      return 'catalog_ref';
+    case 'reference':
+    case 'select':
+    case 'multiselect':
+      return type;
+    case 'date':
+      return 'text'; // date не поддерживается в каталогах напрямую
+    default:
+      return 'text';
+  }
+};
+
+const createEmptyField = (isCustomFieldSelector = false): FieldFormData => ({
   id: `field-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
   name: '',
   type: 'text',
@@ -64,6 +105,9 @@ const createEmptyField = (): FieldFormData => ({
   referenceId: '',
   multiple: false,
   targetCatalogId: '',
+  isCustomFieldSelector,
+  customFieldId: '',
+  customFieldType: isCustomFieldSelector ? 'string' : undefined,
 });
 
 export const CreateCatalogDialog = ({
@@ -71,7 +115,7 @@ export const CreateCatalogDialog = ({
   onClose,
   editingCatalogId,
 }: CreateCatalogDialogProps) => {
-  const { addCatalog, updateCatalog, getCatalog, catalogs } = useCatalogs();
+  const { addCatalog, updateCatalog, getCatalog, catalogs, getEntriesByCatalog } = useCatalogs();
   const { fieldDefinitions } = useCustomFields();
 
   const [catalogName, setCatalogName] = useState('');
@@ -79,8 +123,74 @@ export const CreateCatalogDialog = ({
   const [isEditable, setIsEditable] = useState(false);
   const [fields, setFields] = useState<FieldFormData[]>([createEmptyField()]);
 
+  // Состояния для меню добавления поля
+  const [addMenuAnchor, setAddMenuAnchor] = useState<null | HTMLElement>(null);
+
   // Получаем список справочников для выбора
   const referenceOptions = fieldDefinitions.filter((def) => def.type === 'reference' && def.active);
+
+  // Получаем ID пользовательских полей, уже добавленных в каталог
+  const addedCustomFieldIds = useMemo(() => {
+    return new Set(fields.filter(f => f.customFieldId).map(f => f.customFieldId));
+  }, [fields]);
+
+  // Обработчики меню
+  const handleOpenAddMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setAddMenuAnchor(event.currentTarget);
+  };
+
+  const handleCloseAddMenu = () => {
+    setAddMenuAnchor(null);
+  };
+
+  // Добавить поле в режиме выбора пользовательского поля
+  const handleAddCustomFieldSelector = () => {
+    handleCloseAddMenu();
+    setFields([...fields, createEmptyField(true)]);
+  };
+
+  // Обработка выбора конкретного пользовательского поля
+  const handleSelectCustomField = (index: number, customFieldId: string) => {
+    const customField = fieldDefinitions.find(f => f.id === customFieldId);
+    if (!customField) return;
+
+    const newFields = [...fields];
+    newFields[index] = {
+      ...newFields[index],
+      customFieldId: customField.id,
+      name: customField.name,
+      type: mapCustomFieldType(customField.type),
+      referenceId: customField.type === 'reference' && customField.referenceFields?.[0]?.targetReferenceId
+        ? customField.referenceFields[0].targetReferenceId
+        : '',
+      multiple: customField.isMultipleSelection || false,
+      targetCatalogId: customField.catalogId || '',
+    };
+    setFields(newFields);
+  };
+
+  // Получаем ID полей, которые имеют заполненные значения в записях каталога
+  const filledFieldIds = new Set<string>();
+  if (editingCatalogId) {
+    const entries = getEntriesByCatalog(editingCatalogId);
+    entries.forEach((entry) => {
+      entry.fields.forEach((fieldValue) => {
+        const value = fieldValue.value;
+        const hasValue =
+          value !== null &&
+          value !== '' &&
+          !(Array.isArray(value) && value.length === 0);
+        if (hasValue) {
+          filledFieldIds.add(fieldValue.fieldId);
+        }
+      });
+    });
+  }
+
+  // Проверка, можно ли редактировать/удалять поле
+  const isFieldLocked = (fieldId: string): boolean => {
+    return filledFieldIds.has(fieldId);
+  };
 
   // Загрузка данных при редактировании
   useEffect(() => {
@@ -100,6 +210,9 @@ export const CreateCatalogDialog = ({
             referenceId: f.referenceId || '',
             multiple: f.multiple || false,
             targetCatalogId: f.targetCatalogId || '',
+            // Восстанавливаем информацию о пользовательском поле
+            isCustomFieldSelector: !!f.customFieldId,
+            customFieldId: f.customFieldId || '',
           }))
         );
       }
@@ -112,16 +225,28 @@ export const CreateCatalogDialog = ({
   }, [editingCatalogId, getCatalog, open]);
 
   const handleAddField = () => {
+    handleCloseAddMenu();
     setFields([...fields, createEmptyField()]);
   };
 
   const handleRemoveField = (index: number) => {
-    if (fields.length > 1) {
+    const field = fields[index];
+    if (fields.length > 1 && !isFieldLocked(field.id)) {
       setFields(fields.filter((_, i) => i !== index));
     }
   };
 
   const handleFieldChange = (index: number, key: keyof FieldFormData, value: any) => {
+    const field = fields[index];
+
+    // Блокируем изменение типа и связанных настроек для заполненных полей
+    if (isFieldLocked(field.id)) {
+      const lockedKeys: (keyof FieldFormData)[] = ['type', 'options', 'referenceId', 'targetCatalogId', 'multiple'];
+      if (lockedKeys.includes(key)) {
+        return;
+      }
+    }
+
     const newFields = [...fields];
     newFields[index] = { ...newFields[index], [key]: value };
 
@@ -148,6 +273,15 @@ export const CreateCatalogDialog = ({
   const handleSave = () => {
     if (!catalogName.trim()) {
       alert('Введите название каталога');
+      return;
+    }
+
+    // Для пользовательских полей проверяем что выбрано поле
+    const hasIncompleteCustomField = fields.some(
+      (f) => f.isCustomFieldSelector && !f.customFieldId
+    );
+    if (hasIncompleteCustomField) {
+      alert('Выберите пользовательское поле или удалите пустой блок');
       return;
     }
 
@@ -182,6 +316,8 @@ export const CreateCatalogDialog = ({
         name: f.name.trim(),
         type: f.type,
         required: f.required,
+        // Сохраняем ID пользовательского поля если есть
+        ...(f.customFieldId ? { customFieldId: f.customFieldId } : {}),
         ...(f.type === 'select' || f.type === 'multiselect'
           ? {
               options: f.options
@@ -272,151 +408,283 @@ export const CreateCatalogDialog = ({
             Поля каталога
           </Typography>
 
-          {fields.map((field, index) => (
-            <Paper
-              key={field.id}
-              elevation={0}
-              sx={{
-                p: 2,
-                mb: 2,
-                border: '1px solid #e0e0e0',
-                borderRadius: 2,
-                backgroundColor: '#fafafa',
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                <DragIndicatorIcon sx={{ color: '#ccc', mt: 1 }} />
+          {fields.map((field, index) => {
+            const locked = isFieldLocked(field.id);
+            const isCustomSelector = field.isCustomFieldSelector;
 
-                <Box sx={{ flex: 1 }}>
-                  <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                    {/* Название поля */}
-                    <TextField
-                      label="Название поля"
-                      value={field.name}
-                      onChange={(e) => handleFieldChange(index, 'name', e.target.value)}
-                      size="small"
-                      sx={{ flex: 1 }}
-                    />
+            // Получаем все доступные пользовательские поля (без фильтрации по типу)
+            const allCustomFields = fieldDefinitions.filter(f => f.active);
 
-                    {/* Тип поля */}
-                    <FormControl size="small" sx={{ minWidth: 150 }}>
-                      <InputLabel>Тип</InputLabel>
-                      <Select
-                        value={field.type}
-                        label="Тип"
-                        onChange={(e) => handleFieldChange(index, 'type', e.target.value)}
-                      >
-                        {FIELD_TYPE_OPTIONS.map((option) => (
-                          <MenuItem key={option.value} value={option.value}>
-                            {option.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+            // Получаем информацию о выбранном поле для отображения
+            const selectedCustomField = field.customFieldId
+              ? fieldDefinitions.find(f => f.id === field.customFieldId)
+              : null;
 
-                    {/* Обязательное */}
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={field.required}
-                          onChange={(e) => handleFieldChange(index, 'required', e.target.checked)}
+            return (
+              <Paper
+                key={field.id}
+                elevation={0}
+                sx={{
+                  p: 2,
+                  mb: 2,
+                  border: '1px solid',
+                  borderColor: '#e0e0e0',
+                  borderRadius: 2,
+                  backgroundColor: '#fafafa',
+                  position: 'relative',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                  <DragIndicatorIcon sx={{ color: '#ccc', mt: 1 }} />
+
+                  <Box sx={{ flex: 1 }}>
+                    {/* UI для выбора пользовательского поля */}
+                    {isCustomSelector ? (
+                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        {/* Autocomplete с поиском */}
+                        <Autocomplete
                           size="small"
+                          sx={{ flex: 1 }}
+                          options={allCustomFields}
+                          value={selectedCustomField || null}
+                          onChange={(_, newValue) => {
+                            if (newValue) {
+                              handleSelectCustomField(index, newValue.id);
+                            }
+                          }}
+                          getOptionLabel={(option) => option.name}
+                          getOptionDisabled={(option) =>
+                            addedCustomFieldIds.has(option.id) && option.id !== field.customFieldId
+                          }
+                          groupBy={(option) =>
+                            CUSTOM_FIELD_TYPE_OPTIONS.find(t => t.value === option.type)?.label || option.type
+                          }
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <LinkIcon sx={{ fontSize: '1rem' }} />
+                                  Пользовательское поле
+                                </Box>
+                              }
+                              placeholder="Начните вводить название"
+                            />
+                          )}
+                          renderOption={(props, option) => {
+                            const isAlreadyAdded = addedCustomFieldIds.has(option.id) && option.id !== field.customFieldId;
+                            return (
+                              <li {...props} key={option.id}>
+                                <Box sx={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  width: '100%',
+                                  opacity: isAlreadyAdded ? 0.5 : 1,
+                                }}>
+                                  <span>{option.name}</span>
+                                  {isAlreadyAdded && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      уже добавлено
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </li>
+                            );
+                          }}
+                          renderGroup={(params) => (
+                            <li key={params.key}>
+                              <Box
+                                sx={{
+                                  position: 'sticky',
+                                  top: '-8px',
+                                  padding: '8px 16px',
+                                  backgroundColor: '#f5f5f5',
+                                  fontWeight: 600,
+                                  fontSize: '0.75rem',
+                                  color: '#666',
+                                }}
+                              >
+                                {params.group}
+                              </Box>
+                              <ul style={{ padding: 0 }}>{params.children}</ul>
+                            </li>
+                          )}
+                          noOptionsText="Нет доступных полей"
+                          isOptionEqualToValue={(option, value) => option.id === value.id}
                         />
-                      }
-                      label="Обязательное"
-                    />
+
+                        {/* Обязательное */}
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={field.required}
+                              onChange={(e) => handleFieldChange(index, 'required', e.target.checked)}
+                              size="small"
+                            />
+                          }
+                          label="Обязательное"
+                          sx={{ minWidth: 'auto', mr: 0 }}
+                        />
+                      </Box>
+                    ) : (
+                      /* Стандартный UI для нового поля */
+                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        {/* Название поля */}
+                        <TextField
+                          label="Название поля"
+                          value={field.name}
+                          onChange={(e) => handleFieldChange(index, 'name', e.target.value)}
+                          size="small"
+                          sx={{ flex: 1 }}
+                        />
+
+                        {/* Тип поля */}
+                        <Tooltip title={locked ? 'Нельзя изменить тип — поле содержит данные' : ''}>
+                          <FormControl size="small" sx={{ minWidth: 150 }}>
+                            <InputLabel>Тип</InputLabel>
+                            <Select
+                              value={field.type}
+                              label="Тип"
+                              onChange={(e) => handleFieldChange(index, 'type', e.target.value)}
+                              disabled={locked}
+                            >
+                              {FIELD_TYPE_OPTIONS.map((option) => (
+                                <MenuItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Tooltip>
+
+                        {/* Обязательное */}
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={field.required}
+                              onChange={(e) => handleFieldChange(index, 'required', e.target.checked)}
+                              size="small"
+                            />
+                          }
+                          label="Обязательное"
+                          sx={{ minWidth: 'auto', mr: 0 }}
+                        />
+                      </Box>
+                    )}
+
+                    {/* Дополнительные настройки только для новых полей (не пользовательских) */}
+                    {!isCustomSelector && (
+                      <>
+                        {/* Опции для select/multiselect */}
+                        {(field.type === 'select' || field.type === 'multiselect') && (
+                          <Tooltip title={locked ? 'Нельзя изменить варианты — поле содержит данные' : ''}>
+                            <TextField
+                              label="Варианты (через запятую)"
+                              value={field.options}
+                              onChange={(e) => handleFieldChange(index, 'options', e.target.value)}
+                              size="small"
+                              fullWidth
+                              placeholder="Вариант 1, Вариант 2, Вариант 3"
+                              disabled={locked}
+                              sx={{ mb: 1 }}
+                            />
+                          </Tooltip>
+                        )}
+
+                        {/* Выбор справочника для reference */}
+                        {field.type === 'reference' && (
+                          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                            <Tooltip title={locked ? 'Нельзя изменить справочник — поле содержит данные' : ''}>
+                              <FormControl size="small" sx={{ minWidth: 200 }}>
+                                <InputLabel>Справочник</InputLabel>
+                                <Select
+                                  value={field.referenceId}
+                                  label="Справочник"
+                                  onChange={(e) => handleFieldChange(index, 'referenceId', e.target.value)}
+                                  disabled={locked}
+                                >
+                                  {referenceOptions.length === 0 ? (
+                                    <MenuItem disabled value="">
+                                      Нет доступных справочников
+                                    </MenuItem>
+                                  ) : (
+                                    referenceOptions.map((ref) => (
+                                      <MenuItem key={ref.id} value={ref.id}>
+                                        {ref.name}
+                                      </MenuItem>
+                                    ))
+                                  )}
+                                </Select>
+                              </FormControl>
+                            </Tooltip>
+                            <Tooltip title={locked ? 'Нельзя изменить — поле содержит данные' : ''}>
+                              <FormControlLabel
+                                control={
+                                  <Checkbox
+                                    checked={field.multiple}
+                                    onChange={(e) => handleFieldChange(index, 'multiple', e.target.checked)}
+                                    size="small"
+                                    disabled={locked}
+                                  />
+                                }
+                                label="Множественный выбор"
+                              />
+                            </Tooltip>
+                          </Box>
+                        )}
+
+                        {/* Выбор каталога для catalog_ref */}
+                        {field.type === 'catalog_ref' && (
+                          <Tooltip title={locked ? 'Нельзя изменить каталог — поле содержит данные' : ''}>
+                            <FormControl size="small" sx={{ minWidth: 200 }}>
+                              <InputLabel>Каталог</InputLabel>
+                              <Select
+                                value={field.targetCatalogId}
+                                label="Каталог"
+                                onChange={(e) => handleFieldChange(index, 'targetCatalogId', e.target.value)}
+                                disabled={locked}
+                              >
+                                {catalogs.length === 0 ? (
+                                  <MenuItem disabled value="">
+                                    Нет доступных каталогов
+                                  </MenuItem>
+                                ) : (
+                                  catalogs.map((cat) => (
+                                    <MenuItem key={cat.id} value={cat.id}>
+                                      {cat.name}
+                                    </MenuItem>
+                                  ))
+                                )}
+                              </Select>
+                            </FormControl>
+                          </Tooltip>
+                        )}
+                      </>
+                    )}
                   </Box>
 
-                  {/* Опции для select/multiselect */}
-                  {(field.type === 'select' || field.type === 'multiselect') && (
-                    <TextField
-                      label="Варианты (через запятую)"
-                      value={field.options}
-                      onChange={(e) => handleFieldChange(index, 'options', e.target.value)}
-                      size="small"
-                      fullWidth
-                      placeholder="Вариант 1, Вариант 2, Вариант 3"
-                      sx={{ mb: 1 }}
-                    />
-                  )}
-
-                  {/* Выбор справочника для reference */}
-                  {field.type === 'reference' && (
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                      <FormControl size="small" sx={{ minWidth: 200 }}>
-                        <InputLabel>Справочник</InputLabel>
-                        <Select
-                          value={field.referenceId}
-                          label="Справочник"
-                          onChange={(e) => handleFieldChange(index, 'referenceId', e.target.value)}
-                        >
-                          {referenceOptions.length === 0 ? (
-                            <MenuItem disabled value="">
-                              Нет доступных справочников
-                            </MenuItem>
-                          ) : (
-                            referenceOptions.map((ref) => (
-                              <MenuItem key={ref.id} value={ref.id}>
-                                {ref.name}
-                              </MenuItem>
-                            ))
-                          )}
-                        </Select>
-                      </FormControl>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={field.multiple}
-                            onChange={(e) => handleFieldChange(index, 'multiple', e.target.checked)}
-                            size="small"
-                          />
-                        }
-                        label="Множественный выбор"
-                      />
-                    </Box>
-                  )}
-
-                  {/* Выбор каталога для catalog_ref */}
-                  {field.type === 'catalog_ref' && (
-                    <FormControl size="small" sx={{ minWidth: 200 }}>
-                      <InputLabel>Каталог</InputLabel>
-                      <Select
-                        value={field.targetCatalogId}
-                        label="Каталог"
-                        onChange={(e) => handleFieldChange(index, 'targetCatalogId', e.target.value)}
+                  {/* Кнопка удаления */}
+                  <Tooltip title={locked ? 'Нельзя удалить — поле содержит данные' : ''}>
+                    <span>
+                      <IconButton
+                        onClick={() => handleRemoveField(index)}
+                        disabled={fields.length === 1 || locked}
+                        sx={{ color: locked ? '#ccc' : '#d32f2f' }}
                       >
-                        {catalogs.length === 0 ? (
-                          <MenuItem disabled value="">
-                            Нет доступных каталогов
-                          </MenuItem>
-                        ) : (
-                          catalogs.map((cat) => (
-                            <MenuItem key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </MenuItem>
-                          ))
-                        )}
-                      </Select>
-                    </FormControl>
-                  )}
+                        <DeleteIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
                 </Box>
+              </Paper>
+            );
+          })}
 
-                {/* Кнопка удаления */}
-                <IconButton
-                  onClick={() => handleRemoveField(index)}
-                  disabled={fields.length === 1}
-                  sx={{ color: '#d32f2f' }}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Box>
-            </Paper>
-          ))}
-
-          {/* Кнопка добавления поля */}
+          {/* Кнопка добавления поля с меню */}
           <Button
             startIcon={<AddIcon />}
-            onClick={handleAddField}
+            endIcon={<ArrowDropDownIcon />}
+            onClick={handleOpenAddMenu}
             sx={{
               color: '#7B1FA2',
               textTransform: 'none',
@@ -424,6 +692,48 @@ export const CreateCatalogDialog = ({
           >
             Добавить поле
           </Button>
+
+          {/* Dropdown меню */}
+          <Menu
+            anchorEl={addMenuAnchor}
+            open={Boolean(addMenuAnchor)}
+            onClose={handleCloseAddMenu}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'left',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'left',
+            }}
+            PaperProps={{
+              sx: {
+                minWidth: 200,
+                borderRadius: 2,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                mt: 1,
+              },
+            }}
+          >
+            <MenuItem onClick={handleAddField}>
+              <ListItemIcon>
+                <AddIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary="Новое поле" />
+            </MenuItem>
+            <MenuItem
+              onClick={handleAddCustomFieldSelector}
+              disabled={fieldDefinitions.filter(f => f.active).length === 0}
+            >
+              <ListItemIcon>
+                <LinkIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary="Пользовательское поле"
+                secondary={fieldDefinitions.filter(f => f.active).length === 0 ? 'Нет доступных полей' : undefined}
+              />
+            </MenuItem>
+          </Menu>
 
           {referenceOptions.length === 0 && (
             <Typography variant="caption" sx={{ display: 'block', mt: 2, color: '#f57c00' }}>
@@ -451,6 +761,7 @@ export const CreateCatalogDialog = ({
           {editingCatalogId ? 'Сохранить' : 'Создать'}
         </Button>
       </DialogActions>
+
     </Dialog>
   );
 };
