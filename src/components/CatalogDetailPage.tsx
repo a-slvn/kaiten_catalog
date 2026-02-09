@@ -16,6 +16,9 @@ import {
   Tooltip,
   InputAdornment,
   TableSortLabel,
+  Popover,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -24,6 +27,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   FolderOpen as FolderOpenIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useCatalogs } from '../context/CatalogsContext';
 import { useReferenceEntries } from '../context/ReferenceEntriesContext';
@@ -49,6 +53,8 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [sortField, setSortField] = useState<string>('displayValue');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [hiddenFields, setHiddenFields] = useState<Set<string>>(new Set());
+  const [settingsAnchor, setSettingsAnchor] = useState<null | HTMLElement>(null);
 
   const catalog = getCatalog(catalogId);
   const entries = getEntriesByCatalog(catalogId);
@@ -100,6 +106,23 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
       return String(bValue).localeCompare(String(aValue));
     });
   }, [filteredEntries, sortField, sortDirection]);
+
+  const visibleFields = useMemo(() => {
+    if (!catalog) return [];
+    return catalog.fields.filter((f) => !hiddenFields.has(f.id));
+  }, [catalog, hiddenFields]);
+
+  const toggleFieldVisibility = (fieldId: string) => {
+    setHiddenFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(fieldId)) {
+        next.delete(fieldId);
+      } else {
+        next.add(fieldId);
+      }
+      return next;
+    });
+  };
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -237,8 +260,8 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
         </Button>
       </Box>
 
-      {/* Search */}
-      <Box sx={{ mb: 3 }}>
+      {/* Search + Settings */}
+      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
         <TextField
           placeholder="Поиск по всем полям..."
           value={searchQuery}
@@ -253,25 +276,50 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
             ),
           }}
         />
+        <Tooltip title="Настроить столбцы">
+          <IconButton
+            onClick={(e) => setSettingsAnchor(e.currentTarget)}
+            sx={{ color: '#666' }}
+          >
+            <SettingsIcon />
+          </IconButton>
+        </Tooltip>
+        <Popover
+          open={Boolean(settingsAnchor)}
+          anchorEl={settingsAnchor}
+          onClose={() => setSettingsAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          PaperProps={{ sx: { p: 2, minWidth: 220, maxHeight: 400 } }}
+        >
+          <Typography variant="subtitle2" sx={{ mb: 1, color: '#666' }}>
+            Видимые столбцы
+          </Typography>
+          {catalog?.fields.map((field) => (
+            <FormControlLabel
+              key={field.id}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={!hiddenFields.has(field.id)}
+                  onChange={() => toggleFieldVisibility(field.id)}
+                />
+              }
+              label={field.name}
+              sx={{ display: 'flex', mr: 0 }}
+            />
+          ))}
+        </Popover>
       </Box>
 
       {/* Table */}
       {sortedEntries.length > 0 ? (
-        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e0e0e0' }}>
-          <Table>
+        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e0e0e0', overflowX: 'auto' }}>
+          <Table sx={{ minWidth: 'max-content' }}>
             <TableHead>
               <TableRow sx={{ backgroundColor: '#fafafa' }}>
-                <TableCell sx={{ fontWeight: 600 }}>
-                  <TableSortLabel
-                    active={sortField === 'displayValue'}
-                    direction={sortField === 'displayValue' ? sortDirection : 'asc'}
-                    onClick={() => handleSort('displayValue')}
-                  >
-                    Название
-                  </TableSortLabel>
-                </TableCell>
-                {catalog.fields.slice(0, 5).map((fieldDef) => (
-                  <TableCell key={fieldDef.id} sx={{ fontWeight: 600 }}>
+                {visibleFields.map((fieldDef) => (
+                  <TableCell key={fieldDef.id} sx={{ fontWeight: 600, minWidth: 150, whiteSpace: 'nowrap' }}>
                     <TableSortLabel
                       active={sortField === fieldDef.id}
                       direction={sortField === fieldDef.id ? sortDirection : 'asc'}
@@ -292,13 +340,8 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
                   onClick={() => handleOpenDetail(entry.id)}
                   sx={{ cursor: 'pointer' }}
                 >
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {entry.displayValue}
-                    </Typography>
-                  </TableCell>
-                  {catalog.fields.slice(0, 5).map((fieldDef) => (
-                    <TableCell key={fieldDef.id}>
+                  {visibleFields.map((fieldDef) => (
+                    <TableCell key={fieldDef.id} sx={{ whiteSpace: 'nowrap' }}>
                       {fieldDef.type === 'reference' ? (
                         <Chip
                           label={getFieldDisplayValue(entry, fieldDef)}
