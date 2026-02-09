@@ -44,11 +44,7 @@ const FIELD_TYPE_OPTIONS: { value: CatalogFieldType; label: string }[] = [
   { value: 'url', label: 'Ссылка' },
   { value: 'email', label: 'Email' },
   { value: 'phone', label: 'Телефон' },
-  { value: 'select', label: 'Селект' },
-  { value: 'multiselect', label: 'Мультиселект' },
   { value: 'numeric', label: 'Число' },
-  { value: 'reference', label: 'Справочник' },
-  { value: 'catalog_ref', label: 'Каталог' },
 ];
 
 interface FieldFormData {
@@ -528,19 +524,19 @@ export const CreateCatalogDialog = ({
                       </Box>
                     ) : (
                       /* Стандартный UI для нового поля */
-                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
                         {/* Название поля */}
                         <TextField
                           label="Название поля"
                           value={field.name}
                           onChange={(e) => handleFieldChange(index, 'name', e.target.value)}
                           size="small"
-                          sx={{ flex: 1 }}
+                          sx={{ flex: 1, minWidth: 150 }}
                         />
 
                         {/* Тип поля */}
                         <Tooltip title={locked ? 'Нельзя изменить тип — поле содержит данные' : ''}>
-                          <FormControl size="small" sx={{ minWidth: 150 }}>
+                          <FormControl size="small" sx={{ minWidth: 130 }}>
                             <InputLabel>Тип</InputLabel>
                             <Select
                               value={field.type}
@@ -556,6 +552,76 @@ export const CreateCatalogDialog = ({
                             </Select>
                           </FormControl>
                         </Tooltip>
+
+                        {/* Inline выбор справочника для reference */}
+                        {field.type === 'reference' && (
+                          <>
+                            <Tooltip title={locked ? 'Нельзя изменить справочник — поле содержит данные' : ''}>
+                              <FormControl size="small" sx={{ minWidth: 150 }}>
+                                <InputLabel>Справочник</InputLabel>
+                                <Select
+                                  value={field.referenceId}
+                                  label="Справочник"
+                                  onChange={(e) => handleFieldChange(index, 'referenceId', e.target.value)}
+                                  disabled={locked}
+                                >
+                                  {referenceOptions.length === 0 ? (
+                                    <MenuItem disabled value="">
+                                      Нет доступных
+                                    </MenuItem>
+                                  ) : (
+                                    referenceOptions.map((ref) => (
+                                      <MenuItem key={ref.id} value={ref.id}>
+                                        {ref.name}
+                                      </MenuItem>
+                                    ))
+                                  )}
+                                </Select>
+                              </FormControl>
+                            </Tooltip>
+                            <Tooltip title={locked ? 'Нельзя изменить — поле содержит данные' : ''}>
+                              <FormControlLabel
+                                control={
+                                  <Checkbox
+                                    checked={field.multiple}
+                                    onChange={(e) => handleFieldChange(index, 'multiple', e.target.checked)}
+                                    size="small"
+                                    disabled={locked}
+                                  />
+                                }
+                                label="Множеств."
+                                sx={{ mr: 0 }}
+                              />
+                            </Tooltip>
+                          </>
+                        )}
+
+                        {/* Inline выбор каталога для catalog_ref */}
+                        {field.type === 'catalog_ref' && (
+                          <Tooltip title={locked ? 'Нельзя изменить каталог — поле содержит данные' : ''}>
+                            <FormControl size="small" sx={{ minWidth: 150 }}>
+                              <InputLabel>Каталог</InputLabel>
+                              <Select
+                                value={field.targetCatalogId}
+                                label="Каталог"
+                                onChange={(e) => handleFieldChange(index, 'targetCatalogId', e.target.value)}
+                                disabled={locked}
+                              >
+                                {catalogs.length === 0 ? (
+                                  <MenuItem disabled value="">
+                                    Нет доступных
+                                  </MenuItem>
+                                ) : (
+                                  catalogs.map((cat) => (
+                                    <MenuItem key={cat.id} value={cat.id}>
+                                      {cat.name}
+                                    </MenuItem>
+                                  ))
+                                )}
+                              </Select>
+                            </FormControl>
+                          </Tooltip>
+                        )}
 
                         {/* Обязательное */}
                         <FormControlLabel
@@ -588,75 +654,6 @@ export const CreateCatalogDialog = ({
                               disabled={locked}
                               sx={{ mb: 1 }}
                             />
-                          </Tooltip>
-                        )}
-
-                        {/* Выбор справочника для reference */}
-                        {field.type === 'reference' && (
-                          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                            <Tooltip title={locked ? 'Нельзя изменить справочник — поле содержит данные' : ''}>
-                              <FormControl size="small" sx={{ minWidth: 200 }}>
-                                <InputLabel>Справочник</InputLabel>
-                                <Select
-                                  value={field.referenceId}
-                                  label="Справочник"
-                                  onChange={(e) => handleFieldChange(index, 'referenceId', e.target.value)}
-                                  disabled={locked}
-                                >
-                                  {referenceOptions.length === 0 ? (
-                                    <MenuItem disabled value="">
-                                      Нет доступных справочников
-                                    </MenuItem>
-                                  ) : (
-                                    referenceOptions.map((ref) => (
-                                      <MenuItem key={ref.id} value={ref.id}>
-                                        {ref.name}
-                                      </MenuItem>
-                                    ))
-                                  )}
-                                </Select>
-                              </FormControl>
-                            </Tooltip>
-                            <Tooltip title={locked ? 'Нельзя изменить — поле содержит данные' : ''}>
-                              <FormControlLabel
-                                control={
-                                  <Checkbox
-                                    checked={field.multiple}
-                                    onChange={(e) => handleFieldChange(index, 'multiple', e.target.checked)}
-                                    size="small"
-                                    disabled={locked}
-                                  />
-                                }
-                                label="Множественный выбор"
-                              />
-                            </Tooltip>
-                          </Box>
-                        )}
-
-                        {/* Выбор каталога для catalog_ref */}
-                        {field.type === 'catalog_ref' && (
-                          <Tooltip title={locked ? 'Нельзя изменить каталог — поле содержит данные' : ''}>
-                            <FormControl size="small" sx={{ minWidth: 200 }}>
-                              <InputLabel>Каталог</InputLabel>
-                              <Select
-                                value={field.targetCatalogId}
-                                label="Каталог"
-                                onChange={(e) => handleFieldChange(index, 'targetCatalogId', e.target.value)}
-                                disabled={locked}
-                              >
-                                {catalogs.length === 0 ? (
-                                  <MenuItem disabled value="">
-                                    Нет доступных каталогов
-                                  </MenuItem>
-                                ) : (
-                                  catalogs.map((cat) => (
-                                    <MenuItem key={cat.id} value={cat.id}>
-                                      {cat.name}
-                                    </MenuItem>
-                                  ))
-                                )}
-                              </Select>
-                            </FormControl>
                           </Tooltip>
                         )}
                       </>
