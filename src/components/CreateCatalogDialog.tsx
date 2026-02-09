@@ -45,6 +45,7 @@ const FIELD_TYPE_OPTIONS: { value: CatalogFieldType; label: string }[] = [
   { value: 'email', label: 'Email' },
   { value: 'phone', label: 'Телефон' },
   { value: 'numeric', label: 'Число' },
+  { value: 'catalog_ref', label: 'Каталог' },
 ];
 
 interface FieldFormData {
@@ -69,7 +70,6 @@ const CUSTOM_FIELD_TYPE_OPTIONS: { value: string; label: string; catalogType: Ca
   { value: 'select', label: 'Селект', catalogType: 'select' },
   { value: 'multiselect', label: 'Мультиселект', catalogType: 'multiselect' },
   { value: 'reference', label: 'Справочник', catalogType: 'reference' },
-  { value: 'catalog', label: 'Каталог', catalogType: 'catalog_ref' },
 ];
 
 // Маппинг типов CustomFieldDefinition -> CatalogFieldType
@@ -411,8 +411,8 @@ export const CreateCatalogDialog = ({
             const locked = isFieldLocked(field.id);
             const isCustomSelector = field.isCustomFieldSelector;
 
-            // Получаем все доступные пользовательские поля (без фильтрации по типу)
-            const allCustomFields = fieldDefinitions.filter(f => f.active);
+            // Получаем доступные пользовательские поля (без типа catalog — он добавляется через "Поле каталога")
+            const allCustomFields = fieldDefinitions.filter(f => f.active && f.type !== 'catalog');
 
             // Получаем информацию о выбранном поле для отображения
             const selectedCustomField = field.customFieldId
@@ -720,7 +720,7 @@ export const CreateCatalogDialog = ({
               <ListItemIcon>
                 <AddIcon fontSize="small" />
               </ListItemIcon>
-              <ListItemText primary="Новое поле" />
+              <ListItemText primary="Поле каталога" />
             </MenuItem>
             <MenuItem
               onClick={handleAddCustomFieldSelector}
