@@ -147,6 +147,9 @@ export const CreateCatalogDialog = ({
 
   // Обработка выбора конкретного пользовательского поля
   const handleSelectCustomField = (index: number, customFieldId: string) => {
+    const field = fields[index];
+    if (isFieldLocked(field.id)) return;
+
     const customField = fieldDefinitions.find(f => f.id === customFieldId);
     if (!customField) return;
 
@@ -441,6 +444,7 @@ export const CreateCatalogDialog = ({
                         <Autocomplete
                           size="small"
                           sx={{ flex: 1 }}
+                          disabled={locked}
                           options={allCustomFields}
                           value={selectedCustomField || null}
                           onChange={(_, newValue) => {
