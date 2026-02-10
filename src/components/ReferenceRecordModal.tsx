@@ -10,6 +10,7 @@ import {
   Typography,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
   Divider,
   Chip,
@@ -275,34 +276,31 @@ export default function ReferenceRecordModal({
                 {entries.map((entry: ReferenceEntry, idx: number) => (
                   <Box key={entry.id}>
                     {idx > 0 && <Divider sx={{ my: 1 }} />}
-                    <ListItem
-                      disablePadding
-                      sx={{
-                        cursor: 'pointer',
-                        px: 2,
-                        py: 1.5,
-                        borderRadius: 1,
-                        '&:hover': {
-                          bgcolor: 'action.hover',
-                        },
-                      }}
-                      onClick={() => handleNavigateToEntry(entry.id)}
-                    >
-                      <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                        <RefIcon />
-                      </Avatar>
-                      <ListItemText
-                        primary={
-                          <Typography variant="body1" fontWeight={500}>
-                            {entry.displayValue}
-                          </Typography>
-                        }
-                        secondary={
-                          <Typography variant="caption" color="text.secondary">
-                            Обновлено: {new Date(entry.updatedAt).toLocaleDateString('ru-RU')}
-                          </Typography>
-                        }
-                      />
+                    <ListItem disablePadding>
+                      <ListItemButton
+                        onClick={() => handleNavigateToEntry(entry.id)}
+                        sx={{
+                          px: 2,
+                          py: 1.5,
+                          borderRadius: 1,
+                        }}
+                      >
+                        <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
+                          <RefIcon />
+                        </Avatar>
+                        <ListItemText
+                          primary={
+                            <Typography variant="body1" fontWeight={500}>
+                              {entry.displayValue}
+                            </Typography>
+                          }
+                          secondary={
+                            <Typography variant="caption" color="text.secondary">
+                              Обновлено: {new Date(entry.updatedAt).toLocaleDateString('ru-RU')}
+                            </Typography>
+                          }
+                        />
+                      </ListItemButton>
                     </ListItem>
                   </Box>
                 ))}
@@ -317,10 +315,7 @@ export default function ReferenceRecordModal({
   const renderDealsTab = () => {
     if (!entryDetail) return null;
 
-    const relatedDeals = deals.filter(() => {
-      // Все переданные сделки уже отфильтрованы в родительском компоненте
-      return true;
-    });
+    const relatedDeals = deals;
 
     if (relatedDeals.length === 0) {
       return (
@@ -410,10 +405,10 @@ export default function ReferenceRecordModal({
             </Box>
           </Box>
           <Stack direction="row" spacing={1}>
-            <IconButton onClick={handleEdit} size="small" color="primary">
+            <IconButton onClick={handleEdit} size="small" color="primary" aria-label="Редактировать запись">
               <EditIcon />
             </IconButton>
-            <IconButton onClick={onClose} edge="end">
+            <IconButton onClick={onClose} edge="end" aria-label="Закрыть окно">
               <CloseIcon />
             </IconButton>
           </Stack>

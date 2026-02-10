@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -12,6 +12,7 @@ import {
   Paper,
   IconButton,
   Stack,
+  DialogContentText,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -47,6 +48,7 @@ export const CatalogEntryDetailDialog = ({
   entryId,
   onEdit,
 }: CatalogEntryDetailDialogProps) => {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { getEntry, deleteEntry, getCatalog: getCatalogById } = useCatalogs();
   const { getEntry: getReferenceEntry } = useReferenceEntries();
   const { getDealsForEntryWithLinked } = useDealsContext();
@@ -86,10 +88,9 @@ export const CatalogEntryDetailDialog = ({
   }
 
   const handleDelete = () => {
-    if (window.confirm('Вы уверены, что хотите удалить эту запись?')) {
-      deleteEntry(entryId);
-      onClose();
-    }
+    deleteEntry(entryId);
+    setIsDeleteDialogOpen(false);
+    onClose();
   };
 
   // Получаем иконку для типа поля
@@ -121,7 +122,7 @@ export const CatalogEntryDetailDialog = ({
     const fieldValue = entry.fields.find((f) => f.fieldId === fieldDef.id);
     if (!fieldValue || fieldValue.value === null || fieldValue.value === '') {
       return (
-        <Typography variant="body2" sx={{ color: '#999', fontStyle: 'italic' }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
           Не указано
         </Typography>
       );
@@ -200,7 +201,7 @@ export const CatalogEntryDetailDialog = ({
           );
         }
         return (
-          <Typography variant="body2" sx={{ color: '#999', fontStyle: 'italic' }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
             Не выбрано
           </Typography>
         );
@@ -223,7 +224,7 @@ export const CatalogEntryDetailDialog = ({
           return <ReferenceCard entry={refEntry} entryId={value} />;
         }
         return (
-          <Typography variant="body2" sx={{ color: '#999', fontStyle: 'italic' }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
             Не выбрано
           </Typography>
         );
@@ -246,7 +247,7 @@ export const CatalogEntryDetailDialog = ({
           return <CatalogRefCard entry={catEntry} entryId={value} fieldDef={fieldDef} getCatalog={getCatalogById} />;
         }
         return (
-          <Typography variant="body2" sx={{ color: '#999', fontStyle: 'italic' }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
             Не выбрано
           </Typography>
         );
@@ -281,7 +282,7 @@ export const CatalogEntryDetailDialog = ({
         <Divider sx={{ mb: 2 }} />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <ReceiptIcon sx={{ fontSize: 18, color: '#7B1FA2' }} />
-          <Typography variant="subtitle2" sx={{ color: '#666' }}>
+          <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
             Связанные сделки ({relatedDeals.length})
           </Typography>
         </Box>
@@ -316,7 +317,7 @@ export const CatalogEntryDetailDialog = ({
                   <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>
                     {deal.title}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: '#666' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                     {deal.orderNumber && `${deal.orderNumber} • `}
                     {deal.createdDate && new Date(deal.createdDate).toLocaleDateString('ru-RU')}
                   </Typography>
@@ -346,76 +347,115 @@ export const CatalogEntryDetailDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          {entry.displayValue}
-        </Typography>
-        <IconButton onClick={onClose} size="small">
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent>
-        <Box>
-          {/* Метаинформация */}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" sx={{ color: '#999' }}>
-              Создано: {formatDate(entry.createdAt)}
-              {entry.updatedAt !== entry.createdAt && ` | Обновлено: ${formatDate(entry.updatedAt)}`}
-            </Typography>
-          </Box>
-
-          <Divider sx={{ mb: 2 }} />
-
-          {/* Поля */}
-          {catalog.fields.map((fieldDef) => (
-            <Box key={fieldDef.id} sx={{ mb: 2.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                {getFieldIcon(fieldDef.type)}
-                <Typography variant="subtitle2" sx={{ color: '#666' }}>
-                  {fieldDef.name}
-                  {fieldDef.required && <span style={{ color: '#d32f2f' }}> *</span>}
-                </Typography>
-              </Box>
-              <Box sx={{ pl: 3.5 }}>
-                {renderFieldValue(fieldDef, entry)}
-              </Box>
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="sm"
+        fullWidth
+        aria-labelledby="catalog-entry-dialog-title"
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+          <Typography id="catalog-entry-dialog-title" variant="h6" sx={{ fontWeight: 600 }}>
+            {entry.displayValue}
+          </Typography>
+          <IconButton onClick={onClose} size="small" aria-label="Закрыть окно">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ overscrollBehavior: 'contain' }}>
+          <Box>
+            {/* Метаинформация */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Создано: {formatDate(entry.createdAt)}
+                {entry.updatedAt !== entry.createdAt && ` | Обновлено: ${formatDate(entry.updatedAt)}`}
+              </Typography>
             </Box>
-          ))}
 
-          {/* Связанные сделки */}
-          {renderDealsSection()}
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
-        <Button
-          startIcon={<DeleteIcon />}
-          onClick={handleDelete}
-          sx={{ color: '#d32f2f', textTransform: 'none' }}
+            <Divider sx={{ mb: 2 }} />
+
+            {/* Поля */}
+            {catalog.fields.map((fieldDef) => (
+              <Box key={fieldDef.id} sx={{ mb: 2.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                  {getFieldIcon(fieldDef.type)}
+                  <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+                    {fieldDef.name}
+                    {fieldDef.required && <span style={{ color: '#d32f2f' }}> *</span>}
+                  </Typography>
+                </Box>
+                <Box sx={{ pl: 3.5 }}>
+                  {renderFieldValue(fieldDef, entry)}
+                </Box>
+              </Box>
+            ))}
+
+            {/* Связанные сделки */}
+            {renderDealsSection()}
+          </Box>
+        </DialogContent>
+        <DialogActions
+          sx={{
+            p: 2,
+            justifyContent: 'space-between',
+            position: 'sticky',
+            bottom: 0,
+            bgcolor: 'background.paper',
+            borderTop: 1,
+            borderColor: 'divider',
+          }}
         >
-          Удалить
-        </Button>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button onClick={onClose} sx={{ textTransform: 'none' }}>
-            Закрыть
-          </Button>
           <Button
-            variant="contained"
-            startIcon={<EditIcon />}
-            onClick={onEdit}
-            sx={{
-              backgroundColor: '#7B1FA2',
-              textTransform: 'none',
-              '&:hover': {
-                backgroundColor: '#6A1B9A',
-              },
-            }}
+            startIcon={<DeleteIcon />}
+            onClick={() => setIsDeleteDialogOpen(true)}
+            sx={{ color: '#d32f2f', textTransform: 'none' }}
           >
-            Редактировать
+            Удалить
           </Button>
-        </Box>
-      </DialogActions>
-    </Dialog>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button onClick={onClose} sx={{ textTransform: 'none' }}>
+              Закрыть
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<EditIcon />}
+              onClick={onEdit}
+              sx={{
+                backgroundColor: '#7B1FA2',
+                textTransform: 'none',
+                '&:hover': {
+                  backgroundColor: '#6A1B9A',
+                },
+              }}
+            >
+              Редактировать
+            </Button>
+          </Box>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        aria-labelledby="confirm-delete-title"
+      >
+        <DialogTitle id="confirm-delete-title">Удалить запись?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Это действие нельзя отменить. Запись "{entry.displayValue}" будет удалена без возможности восстановления.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setIsDeleteDialogOpen(false)} sx={{ textTransform: 'none' }}>
+            Отмена
+          </Button>
+          <Button onClick={handleDelete} color="error" variant="contained" sx={{ textTransform: 'none' }}>
+            Удалить
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };
 
@@ -449,7 +489,7 @@ const CatalogRefCard = ({ entry, entryId, fieldDef, getCatalog }: CatalogRefCard
           backgroundColor: '#fafafa',
         }}
       >
-        <Typography variant="body2" sx={{ color: '#999' }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           Запись не найдена (ID: {entryId})
         </Typography>
       </Paper>
@@ -485,7 +525,7 @@ const CatalogRefCard = ({ entry, entryId, fieldDef, getCatalog }: CatalogRefCard
         </Typography>
       </Box>
       {displayFields.length > 0 && (
-        <Typography variant="caption" sx={{ color: '#666', pl: 3 }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary', pl: 3 }}>
           {displayFields
             .map((f) => {
               const val = Array.isArray(f.value) ? f.value.join(', ') : f.value;
@@ -510,7 +550,7 @@ const ReferenceCard = ({ entry, entryId }: ReferenceCardProps) => {
           backgroundColor: '#fafafa',
         }}
       >
-        <Typography variant="body2" sx={{ color: '#999' }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           Запись не найдена (ID: {entryId})
         </Typography>
       </Paper>
@@ -538,7 +578,7 @@ const ReferenceCard = ({ entry, entryId }: ReferenceCardProps) => {
         {entry.displayValue}
       </Typography>
       {displayFields.length > 0 && (
-        <Typography variant="caption" sx={{ color: '#666' }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
           {displayFields
             .map((f: any) => {
               const val = Array.isArray(f.value) ? f.value.join(', ') : f.value;
