@@ -29,6 +29,15 @@
 - Дизайн токены и темы
 - User flows
 
+### Тестирование UI → `/test-ui`
+Кастомная команда для тестирования интерфейса через Chrome DevTools MCP:
+- Визуальная проверка (скриншоты, snapshots)
+- Интерактивная проверка (клики, формы, навигация)
+- Проверка ошибок (консоль, сеть)
+- Адаптивность (desktop, tablet, mobile)
+- Accessibility (aria, фокус, контраст)
+- Запуск: `/test-ui` или `/test-ui канбан` для конкретного модуля
+
 ## Инструменты для работы
 
 ### Документация → Context7 MCP
@@ -41,6 +50,18 @@ mcp__context7__query-docs - получение документации
 ```
 mcp__mui-mcp__useMuiDocs - документация MUI
 mcp__mui-mcp__fetchDocs - конкретные страницы документации
+```
+
+### Тестирование UI → Chrome DevTools MCP
+```
+mcp__chrome-devtools__take_snapshot - текстовый снимок страницы (a11y дерево)
+mcp__chrome-devtools__take_screenshot - скриншот страницы или элемента
+mcp__chrome-devtools__click - клик по элементу
+mcp__chrome-devtools__fill - ввод текста в поле
+mcp__chrome-devtools__navigate_page - навигация по URL
+mcp__chrome-devtools__list_console_messages - ошибки в консоли
+mcp__chrome-devtools__resize_page - проверка адаптивности
+mcp__chrome-devtools__press_key - нажатие клавиш
 ```
 
 ### Figma интеграция → Figma MCP

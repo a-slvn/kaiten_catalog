@@ -1,9 +1,14 @@
-import { useState, useMemo } from 'react';
-import { Box, Typography, IconButton, Popover } from '@mui/material';
-import { Edit as EditIcon, Folder as FolderIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { useMemo, useState } from 'react';
+import { Box, Button, IconButton, Popover, Tooltip, Typography } from '@mui/material';
+import {
+  Check as CheckIcon,
+  Edit as EditIcon,
+  Close as CloseIcon,
+  Add as AddIcon,
+} from '@mui/icons-material';
 import { CatalogFieldSelect } from './CatalogFieldSelect';
 import { useCatalogs } from '../context/CatalogsContext';
-import { useReferenceEntries } from '../context/ReferenceEntriesContext';
+import { CatalogEntry } from '../types';
 
 interface Props {
   catalogId: string;
@@ -25,25 +30,25 @@ export const CatalogFieldDisplay = ({
   onEdit,
 }: Props) => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  const [isHovered, setIsHovered] = useState(false);
   const { getEntry, getCatalog } = useCatalogs();
-  const { getEntry: getReferenceEntry } = useReferenceEntries();
 
-  // Конвертируем value в массив ID для удобства работы
+  const catalog = getCatalog(catalogId);
+
   const selectedIds = useMemo(() => {
     if (!value) return [];
     return Array.isArray(value) ? value : [value];
   }, [value]);
 
-  // Получаем выбранные записи с полями
-  const selectedEntries = useMemo(() => {
-    return selectedIds.map((id) => getEntry(id)).filter((e) => e);
-  }, [selectedIds, getEntry]);
+  const selectedEntries = useMemo(
+    () => selectedIds.map((id) => getEntry(id)).filter((entry): entry is CatalogEntry => Boolean(entry)),
+    [selectedIds, getEntry]
+  );
 
-  const hasValue = selectedIds.length > 0;
-  const catalog = getCatalog(catalogId);
+  const hasValue = selectedEntries.length > 0;
+  const canCreate = Boolean(onCreateNew);
+  const canEdit = Boolean(onEdit);
 
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+  const handleOpenPopover = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
@@ -53,271 +58,237 @@ export const CatalogFieldDisplay = ({
 
   const handleChange = (newValue: string | string[]) => {
     onChange(newValue);
-    handleClose();
+    if (!multiple) {
+      handleClose();
+    }
   };
 
-  const handleRemove = () => {
-    onChange(multiple ? [] : '');
+  const handleRemoveEntry = (entryId: string) => {
+    if (multiple) {
+      onChange(selectedIds.filter((id) => id !== entryId));
+    } else {
+      onChange('');
+    }
   };
 
-  const open = Boolean(anchorEl);
+  // Получить краткое описание записи (первые 2 поля кроме displayValue)
+  const getSubtitle = (entryId: string): string => {
+    const entry = getEntry(entryId);
+    if (!entry || !catalog) return '';
+    const parts: string[] = [];
+    for (const fv of entry.fields.slice(0, 3)) {
+      if (parts.length >= 2) break;
+      const def = catalog.fields.find((f) => f.id === fv.fieldId);
+      const val = Array.isArray(fv.value) ? fv.value.join(', ') : fv.value;
+      if (val && String(val) !== entry.displayValue) {
+        parts.push(def ? `${def.name}: ${val}` : String(val));
+      }
+    }
+    return parts.join(' · ');
+  };
 
-  // Если нет значения - показываем компактное поле для выбора
+  const popover = (
+    <Popover
+      open={Boolean(anchorEl)}
+      anchorEl={anchorEl}
+      onClose={handleClose}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      PaperProps={{ sx: { mt: 0.5, minWidth: 340, maxWidth: 460 } }}
+    >
+      <Box
+        sx={{
+          px: 2,
+          py: 1.5,
+          borderBottom: '1px solid #e2e8f0',
+          backgroundColor: '#f8fafc',
+        }}
+      >
+        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+          {catalog?.name || catalogName}
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          {multiple
+            ? 'Выберите одно или несколько значений'
+            : 'Выберите одно значение из каталога'}
+        </Typography>
+      </Box>
+      <Box sx={{ p: 2 }}>
+        <CatalogFieldSelect
+          catalogId={catalogId}
+          value={value}
+          onChange={handleChange}
+          multiple={multiple}
+          onCreateNew={onCreateNew}
+          onEdit={onEdit}
+        />
+        {multiple && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.25 }}>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<CheckIcon />}
+              onClick={handleClose}
+              sx={{ textTransform: 'none' }}
+            >
+              Готово
+            </Button>
+          </Box>
+        )}
+      </Box>
+    </Popover>
+  );
+
+  // Пустое состояние
   if (!hasValue) {
     return (
       <>
-        <Box
-          onClick={handleClick}
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<AddIcon />}
+          onClick={handleOpenPopover}
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            p: 1.5,
-            border: '1px solid #e0e0e0',
-            borderRadius: 2,
-            cursor: 'pointer',
-            backgroundColor: '#fff',
-            transition: 'all 0.2s',
+            textTransform: 'none',
+            borderStyle: 'dashed',
+            borderColor: '#94a3b8',
+            color: '#0f172a',
             '&:hover': {
-              borderColor: '#1976D2',
-              backgroundColor: '#fafafa',
+              borderColor: 'primary.main',
+              backgroundColor: 'rgba(25, 118, 210, 0.04)',
             },
           }}
         >
-          <FolderIcon sx={{ fontSize: '1.2rem', color: '#1976D2' }} />
-          <Typography variant="body2" sx={{ color: '#999' }}>
-            Выбрать {catalogName}
-          </Typography>
-        </Box>
-
-        <Popover
-          open={open}
-          anchorEl={anchorEl}
-          onClose={handleClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'left',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'left',
-          }}
-          PaperProps={{
-            sx: {
-              mt: 1,
-              minWidth: anchorEl ? anchorEl.offsetWidth : 300,
-              maxWidth: 500,
-            },
-          }}
-        >
-          <Box sx={{ p: 2 }}>
-            <CatalogFieldSelect
-              catalogId={catalogId}
-              value={value}
-              onChange={handleChange}
-              multiple={multiple}
-              onCreateNew={onCreateNew}
-              onEdit={onEdit}
-            />
-          </Box>
-        </Popover>
+          Выбрать из {catalog?.name || catalogName}
+        </Button>
+        <Typography variant="caption" sx={{ mt: 0.5, display: 'block', color: 'text.secondary' }}>
+          {canCreate
+            ? 'Нет нужного значения? Его можно создать прямо из списка.'
+            : 'Доступен только выбор существующих значений.'}
+        </Typography>
+        {popover}
       </>
     );
   }
 
-  // Обработчик редактирования записи
-  const handleEditEntry = () => {
-    if (onEdit && selectedIds.length > 0) {
-      onEdit(selectedIds[0], catalogId);
-    }
-  };
-
-  // Если есть значение - показываем все поля записи
+  // С записями
   return (
     <>
-      <Box
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        onClick={handleClick}
-        sx={{
-          border: '1px solid #e0e0e0',
-          borderRadius: 2,
-          backgroundColor: '#fff',
-          position: 'relative',
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-          '&:hover': {
-            borderColor: '#1976D2',
-            backgroundColor: '#fafafa',
-          },
-        }}
-      >
-        {/* Кнопки действий при наведении */}
-        {isHovered && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              display: 'flex',
-              gap: 0.5,
-              zIndex: 1,
-            }}
-          >
-            {onEdit && (
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEditEntry();
-                }}
-                sx={{
-                  p: 0.5,
-                  backgroundColor: '#fff',
-                  border: '1px solid #e0e0e0',
-                  '&:hover': {
-                    color: '#1976D2',
-                    borderColor: '#1976D2',
-                    backgroundColor: 'rgba(25, 118, 210, 0.04)',
-                  },
-                }}
-              >
-                <EditIcon sx={{ fontSize: '1rem' }} />
-              </IconButton>
-            )}
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRemove();
-              }}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+        {selectedEntries.map((entry) => {
+          const subtitle = getSubtitle(entry.id);
+          return (
+            <Box
+              key={entry.id}
               sx={{
-                p: 0.5,
-                backgroundColor: '#fff',
-                border: '1px solid #e0e0e0',
-                '&:hover': {
-                  color: '#f44336',
-                  borderColor: '#f44336',
-                  backgroundColor: 'rgba(244, 67, 54, 0.04)',
-                },
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 0.75,
+                py: 0.5,
+                px: 0.75,
+                borderRadius: 1,
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
               }}
             >
-              <DeleteIcon sx={{ fontSize: '1rem' }} />
-            </IconButton>
-          </Box>
-        )}
-
-        {/* Отображение записей */}
-        <Box sx={{ p: 2 }}>
-          {selectedEntries.map((entry, index) => (
-            <Box key={entry!.id} sx={{ mb: index < selectedEntries.length - 1 ? 2 : 0 }}>
-              {/* Название записи */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                <FolderIcon sx={{ fontSize: '1.2rem', color: '#1976D2' }} />
-                <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
-                  {entry!.displayValue}
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: 'text.primary',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {entry.displayValue}
                 </Typography>
+                {subtitle && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                      fontSize: 12,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      display: 'block',
+                    }}
+                  >
+                    {subtitle}
+                  </Typography>
+                )}
               </Box>
 
-              {/* Поля записи */}
-              {entry!.fields.length > 0 && (
-                <Box sx={{ pl: 3.5 }}>
-                  {entry!.fields.map((fieldValue) => {
-                    const fieldDef = catalog?.fields.find((f) => f.id === fieldValue.fieldId);
-                    let displayValue: string;
-
-                    // Резолвим ID записей справочников и каталогов в displayValue
-                    const resolveId = (id: string): string => {
-                      const refEntry = getReferenceEntry(id);
-                      if (refEntry) return refEntry.displayValue;
-                      const catEntry = getEntry(id);
-                      if (catEntry) return catEntry.displayValue;
-                      return id;
-                    };
-
-                    // Проверяем, похоже ли значение на ID записи
-                    const looksLikeId = (val: unknown): boolean =>
-                      typeof val === 'string' && (val.startsWith('entry-') || val.startsWith('catentry-'));
-
-                    const isRefType = fieldDef?.type === 'reference' || fieldDef?.type === 'catalog_ref';
-
-                    if (isRefType || looksLikeId(fieldValue.value)) {
-                      if (Array.isArray(fieldValue.value)) {
-                        displayValue = fieldValue.value
-                          .map((id) => typeof id === 'string' && looksLikeId(id) ? resolveId(id) : String(id))
-                          .join(', ');
-                      } else if (fieldValue.value) {
-                        displayValue = looksLikeId(fieldValue.value)
-                          ? resolveId(String(fieldValue.value))
-                          : String(fieldValue.value);
-                      } else {
-                        displayValue = '-';
-                      }
-                    } else {
-                      displayValue = Array.isArray(fieldValue.value)
-                        ? fieldValue.value.join(', ')
-                        : String(fieldValue.value || '-');
-                    }
-
-                    // Если имя поля не найдено в каталоге — не показываем сырые ID
-                    const fieldLabel = fieldDef?.name;
-                    if (!fieldLabel && fieldValue.fieldId.startsWith('field-')) {
-                      // Поле удалено из каталога — не отображаем
-                      return null;
-                    }
-
-                    return (
-                      <Box key={fieldValue.fieldId} sx={{ mb: 1 }}>
-                        <Typography
-                          variant="caption"
-                          sx={{ color: '#999', display: 'block', mb: 0.25 }}
-                        >
-                          {fieldLabel || fieldValue.fieldId}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#333' }}>
-                          {displayValue}
-                        </Typography>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              )}
+              <Box
+                className="entry-actions"
+                sx={{
+                  display: 'flex',
+                  gap: 0.1,
+                  flexShrink: 0,
+                  mt: 0.1,
+                }}
+              >
+                {canEdit && onEdit && (
+                  <Tooltip title="Редактировать">
+                    <IconButton
+                      size="small"
+                      onClick={() => onEdit(entry.id, catalogId)}
+                      sx={{
+                        p: 0.4,
+                        color: 'text.secondary',
+                        '&:hover': { color: 'primary.main' },
+                      }}
+                    >
+                      <EditIcon sx={{ fontSize: 15 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Tooltip title={multiple ? 'Убрать из выбранных' : 'Очистить поле'}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleRemoveEntry(entry.id)}
+                    sx={{
+                      p: 0.4,
+                      color: 'text.secondary',
+                      '&:hover': { color: 'error.main' },
+                    }}
+                  >
+                    <CloseIcon sx={{ fontSize: 15 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Box>
-          ))}
-        </Box>
-      </Box>
+          );
+        })}
 
-      <Popover
-        open={open}
-        anchorEl={anchorEl}
-        onClose={handleClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'left',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
-        }}
-        PaperProps={{
-          sx: {
-            mt: 1,
-            minWidth: 400,
-            maxWidth: 500,
-          },
-        }}
-      >
-        <Box sx={{ p: 2 }}>
-          <CatalogFieldSelect
-            catalogId={catalogId}
-            value={value}
-            onChange={handleChange}
-            multiple={multiple}
-            onCreateNew={onCreateNew}
-            onEdit={onEdit}
-          />
-        </Box>
-      </Popover>
+        <Button
+          size="small"
+          variant="text"
+          startIcon={<AddIcon sx={{ fontSize: 15 }} />}
+          onClick={handleOpenPopover}
+          sx={{
+            textTransform: 'none',
+            justifyContent: 'flex-start',
+            width: 'fit-content',
+            pl: 0.5,
+          }}
+        >
+          {multiple ? 'Добавить или изменить значения' : 'Изменить значение'}
+        </Button>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          {canCreate && canEdit
+            ? 'Можно выбрать, создать, редактировать и удалять значения.'
+            : canEdit
+              ? 'Можно выбирать, редактировать и удалять выбранные значения.'
+              : canCreate
+                ? 'Можно выбирать, создавать и удалять значения.'
+                : 'Можно выбрать или удалить значение. Редактирование отключено.'}
+        </Typography>
+      </Box>
+      {popover}
     </>
   );
 };

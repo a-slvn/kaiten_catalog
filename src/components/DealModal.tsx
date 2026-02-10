@@ -10,6 +10,7 @@ import {
   Divider,
   Button,
   Tooltip,
+  Collapse,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -27,12 +28,15 @@ import {
   InsertDriveFile as InsertDriveFileIcon,
   Mic as MicIcon,
   Delete as DeleteIcon,
+  Edit as EditIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
-import { Deal } from '../types';
+import { CatalogEntry, Deal } from '../types';
 import { useState, useEffect } from 'react';
 import { AddFieldMenu } from './AddFieldMenu';
 import { ReferenceFieldDisplay } from './ReferenceFieldDisplay';
-import { CatalogFieldDisplay } from './CatalogFieldDisplay';
+import { CatalogFieldSelect } from './CatalogFieldSelect';
 import { CustomFieldDefinition, ReferenceFieldDef, useCustomFields } from '../context/CustomFieldsContext';
 import { CreateReferenceEntryDialog } from './CreateReferenceEntryDialog';
 import { CreateCatalogEntryDialog } from './CreateCatalogEntryDialog';
@@ -96,6 +100,7 @@ export const DealModal = ({
   const [creatingNewForCatalog, setCreatingNewForCatalog] = useState<{ fieldId: string; catalogId: string } | null>(null);
   const [editingCatalogEntry, setEditingCatalogEntry] = useState<{ entryId: string; catalogId: string } | null>(null);
   const [editingEntry, setEditingEntry] = useState<{ entryId: string; referenceId: string } | null>(null);
+  const [expandedCatalogDetails, setExpandedCatalogDetails] = useState<Record<string, boolean>>({});
 
   // Загрузка данных при смене сделки
   useEffect(() => {
@@ -171,7 +176,27 @@ export const DealModal = ({
 
   const handleCatalogEntryCreated = (entryId: string) => {
     if (creatingNewForCatalog) {
-      handleFieldValueChange(creatingNewForCatalog.fieldId, entryId);
+      const { fieldId, catalogId } = creatingNewForCatalog;
+      const fieldDef = fieldDefinitions.find((field) => field.id === fieldId);
+      const catalogDef = getCatalog(catalogId);
+      const isMultiple = Boolean(catalogDef?.isMultiple || fieldDef?.isCatalogMultiple);
+
+      if (isMultiple) {
+        const currentValue = fieldValues[fieldId];
+        const currentIds = Array.isArray(currentValue)
+          ? currentValue
+          : currentValue
+            ? [String(currentValue)]
+            : [];
+
+        const nextIds = currentIds.includes(entryId)
+          ? currentIds
+          : [...currentIds, entryId];
+
+        handleFieldValueChange(fieldId, nextIds);
+      } else {
+        handleFieldValueChange(fieldId, entryId);
+      }
     }
     setCreatingNewForCatalog(null);
   };
@@ -234,6 +259,43 @@ export const DealModal = ({
     }
   };
 
+  const getCatalogDetailsKey = (fieldId: string, entryId: string) => `${fieldId}:${entryId}`;
+
+  const toggleCatalogDetails = (fieldId: string, entryId: string) => {
+    const detailsKey = getCatalogDetailsKey(fieldId, entryId);
+    setExpandedCatalogDetails((prev) => ({
+      ...prev,
+      [detailsKey]: !(prev[detailsKey] ?? true),
+    }));
+  };
+
+  const resolveLinkedDisplayValue = (value: string): string => {
+    const referenceEntry = getEntry(value);
+    if (referenceEntry) return referenceEntry.displayValue;
+
+    const catalogEntry = getCatalogEntry(value);
+    if (catalogEntry) return catalogEntry.displayValue;
+
+    return value;
+  };
+
+  const formatCatalogFieldValue = (value: string | string[] | number | null): string => {
+    if (value === null || value === undefined || value === '') {
+      return '-';
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) return '-';
+      return value.map((v) => resolveLinkedDisplayValue(String(v))).join(', ');
+    }
+
+    if (typeof value === 'string') {
+      return resolveLinkedDisplayValue(value);
+    }
+
+    return String(value);
+  };
+
   const handleCreateNewEntry = (fieldId: string, referenceId: string) => {
     setCreatingNewForField({ fieldId, referenceId });
   };
@@ -290,12 +352,14 @@ export const DealModal = ({
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="md"
+      maxWidth={false}
       fullWidth
       PaperProps={{
         sx: {
           borderRadius: 3,
           maxHeight: '90vh',
+          width: 'min(1200px, calc(100vw - 32px))',
+          maxWidth: '1200px',
         },
       }}
     >
@@ -534,25 +598,43 @@ export const DealModal = ({
                       targetReferenceName: field.name,
                     };
                     return (
-                      <Box key={field.id} sx={{ mb: 2 }}>
+                      <Box key={field.id} sx={{ mb: 2, '&:hover .field-delete-btn': { opacity: 1 } }}>
                         <Box
                           sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            mb: 1,
+                            display: 'grid',
+                            gridTemplateColumns: '140px minmax(0, 1fr) auto',
+                            alignItems: 'flex-start',
+                            columnGap: 1.25,
                           }}
                         >
-                          <Typography variant="body2" sx={{ color: '#999' }}>
+                          <Typography variant="body2" sx={{ color: '#999', pt: 1 }}>
                             {field.name}
                           </Typography>
+                          <Box sx={{ minWidth: 0 }}>
+                            <ReferenceFieldDisplay
+                              fieldDef={referenceFieldDef}
+                              value={(() => {
+                                const val = fieldValues[field.id];
+                                if (val === undefined || val === null) return field.isMultipleSelection ? [] : '';
+                                if (Array.isArray(val)) return val;
+                                return String(val);
+                              })()}
+                              onChange={(val) => handleFieldValueChange(field.id, val)}
+                              onCreateNew={() => handleCreateNewEntry(field.id, field.id)}
+                              onEdit={(entryId, refId) => handleEditEntry(entryId, refId)}
+                            />
+                          </Box>
                           <Tooltip title="Удалить поле из карточки">
                             <IconButton
+                              className="field-delete-btn"
                               size="small"
                               onClick={() => handleDeleteField(field.id)}
                               sx={{
                                 p: 0.5,
                                 color: '#999',
+                                opacity: 0,
+                                transition: 'opacity 0.2s',
+                                mt: 0.5,
                                 '&:hover': {
                                   color: '#f44336',
                                   backgroundColor: 'rgba(244, 67, 54, 0.08)',
@@ -563,44 +645,71 @@ export const DealModal = ({
                             </IconButton>
                           </Tooltip>
                         </Box>
-                        <ReferenceFieldDisplay
-                          fieldDef={referenceFieldDef}
-                          value={(() => {
-                            const val = fieldValues[field.id];
-                            if (val === undefined || val === null) return field.isMultipleSelection ? [] : '';
-                            if (Array.isArray(val)) return val;
-                            return String(val);
-                          })()}
-                          onChange={(val) => handleFieldValueChange(field.id, val)}
-                          onCreateNew={() => handleCreateNewEntry(field.id, field.id)}
-                          onEdit={(entryId, refId) => handleEditEntry(entryId, refId)}
-                        />
                       </Box>
                     );
                   }
 
-                  // Для каталогов — используем CatalogFieldDisplay
+                  // Для каталогов — показываем селект справа от заголовка
                   if (field.type === 'catalog' && field.catalogId) {
+                    const catalog = getCatalog(field.catalogId);
+                    const isMulti = Boolean(catalog?.isMultiple || field.isCatalogMultiple);
+                    const currentValue = fieldValues[field.id];
+                    const normalizedValue = (() => {
+                      if (currentValue === undefined || currentValue === null) return isMulti ? [] : '';
+                      if (Array.isArray(currentValue)) return currentValue;
+                      return String(currentValue);
+                    })();
+                    const selectedCatalogIds = Array.isArray(normalizedValue)
+                      ? normalizedValue
+                      : normalizedValue
+                        ? [normalizedValue]
+                        : [];
+                    const selectedCatalogEntries = selectedCatalogIds
+                      .map((id) => getCatalogEntry(id))
+                      .filter((entry): entry is CatalogEntry => Boolean(entry));
+
                     return (
-                      <Box key={field.id} sx={{ mb: 2 }}>
+                      <Box key={field.id} sx={{ mb: 2, '&:hover .field-delete-btn': { opacity: 1 } }}>
                         <Box
                           sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            mb: 1,
+                            display: 'grid',
+                            gridTemplateColumns: '140px minmax(0, 1fr) auto',
+                            alignItems: 'flex-start',
+                            columnGap: 1.25,
+                            rowGap: 0.75,
                           }}
                         >
-                          <Typography variant="body2" sx={{ color: '#999' }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: '#999', pt: 1, flexShrink: 0 }}
+                          >
                             {field.name}
                           </Typography>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <CatalogFieldSelect
+                              catalogId={field.catalogId}
+                              value={normalizedValue}
+                              onChange={(val) => handleFieldValueChange(field.id, val)}
+                              multiple={isMulti}
+                              onCreateNew={catalog?.isEditable
+                                ? () => handleCreateNewCatalogEntry(field.id, field.catalogId!)
+                                : undefined}
+                              onEdit={catalog?.isEditable
+                                ? (entryId: string, catId: string) => handleEditCatalogEntry(entryId, catId)
+                                : undefined}
+                            />
+                          </Box>
                           <Tooltip title="Удалить поле из карточки">
                             <IconButton
+                              className="field-delete-btn"
                               size="small"
                               onClick={() => handleDeleteField(field.id)}
                               sx={{
                                 p: 0.5,
                                 color: '#999',
+                                opacity: 0,
+                                transition: 'opacity 0.2s',
+                                mt: 0.5,
                                 '&:hover': {
                                   color: '#f44336',
                                   backgroundColor: 'rgba(244, 67, 54, 0.08)',
@@ -610,43 +719,102 @@ export const DealModal = ({
                               <DeleteIcon sx={{ fontSize: '1.1rem' }} />
                             </IconButton>
                           </Tooltip>
+
+                          {selectedCatalogEntries.length > 0 && (
+                            <Box sx={{ gridColumn: '1 / 4' }}>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                                {selectedCatalogEntries.map((entry) => {
+                                  const detailsKey = getCatalogDetailsKey(field.id, entry.id);
+                                  const detailsExpanded = expandedCatalogDetails[detailsKey] ?? true;
+
+                                  return (
+                                    <Box
+                                      key={entry.id}
+                                      sx={{
+                                        border: '1px solid #e0e0e0',
+                                        borderRadius: 1.5,
+                                        backgroundColor: '#fafafa',
+                                        p: 1,
+                                      }}
+                                    >
+                                      <Box
+                                        sx={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          mb: detailsExpanded ? 0.75 : 0,
+                                        }}
+                                      >
+                                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
+                                          {entry.displayValue}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                                          {catalog?.isEditable && (
+                                            <Tooltip title="Редактировать запись">
+                                              <IconButton
+                                                size="small"
+                                                onClick={() => handleEditCatalogEntry(entry.id, field.catalogId!)}
+                                                sx={{
+                                                  p: 0.35,
+                                                  color: '#999',
+                                                  '&:hover': {
+                                                    color: '#1976D2',
+                                                    backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                                                  },
+                                                }}
+                                              >
+                                                <EditIcon sx={{ fontSize: 15 }} />
+                                              </IconButton>
+                                            </Tooltip>
+                                          )}
+                                          <Tooltip title={detailsExpanded ? 'Скрыть поля' : 'Показать поля'}>
+                                            <IconButton
+                                              size="small"
+                                              onClick={() => toggleCatalogDetails(field.id, entry.id)}
+                                              sx={{ p: 0.35, color: '#7B1FA2' }}
+                                            >
+                                              {detailsExpanded
+                                                ? <ExpandLessIcon sx={{ fontSize: 18 }} />
+                                                : <ExpandMoreIcon sx={{ fontSize: 18 }} />}
+                                            </IconButton>
+                                          </Tooltip>
+                                        </Box>
+                                      </Box>
+
+                                      <Collapse in={detailsExpanded}>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.35 }}>
+                                          {entry.fields.map((fieldValue) => {
+                                            const fieldDef = catalog?.fields.find((f) => f.id === fieldValue.fieldId);
+                                            return (
+                                              <Box
+                                                key={`${entry.id}-${fieldValue.fieldId}`}
+                                                sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}
+                                              >
+                                                <Typography variant="caption" sx={{ color: '#999' }}>
+                                                  {fieldDef?.name || fieldValue.fieldId}:
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ color: '#333' }}>
+                                                  {formatCatalogFieldValue(fieldValue.value)}
+                                                </Typography>
+                                              </Box>
+                                            );
+                                          })}
+                                        </Box>
+                                      </Collapse>
+                                    </Box>
+                                  );
+                                })}
+                              </Box>
+                            </Box>
+                          )}
                         </Box>
-                        <CatalogFieldDisplay
-                          catalogId={field.catalogId}
-                          catalogName={field.catalogName || field.name}
-                          value={(() => {
-                            const catalog = field.catalogId ? getCatalog(field.catalogId) : undefined;
-                            const isMulti = catalog?.isMultiple || field.isCatalogMultiple;
-                            const val = fieldValues[field.id];
-                            if (val === undefined || val === null) return isMulti ? [] : '';
-                            if (Array.isArray(val)) return val;
-                            return String(val);
-                          })()}
-                          onChange={(val) => handleFieldValueChange(field.id, val)}
-                          multiple={(() => {
-                            const catalog = field.catalogId ? getCatalog(field.catalogId) : undefined;
-                            return catalog?.isMultiple || field.isCatalogMultiple;
-                          })()}
-                          onCreateNew={(() => {
-                            const catalog = field.catalogId ? getCatalog(field.catalogId) : undefined;
-                            return catalog?.isEditable
-                              ? () => handleCreateNewCatalogEntry(field.id, field.catalogId!)
-                              : undefined;
-                          })()}
-                          onEdit={(() => {
-                            const catalog = field.catalogId ? getCatalog(field.catalogId) : undefined;
-                            return catalog?.isEditable
-                              ? (entryId: string, catId: string) => handleEditCatalogEntry(entryId, catId)
-                              : undefined;
-                          })()}
-                        />
                       </Box>
                     );
                   }
 
                   // Для остальных типов - простое текстовое поле с кнопкой удаления
                   return (
-                    <Box key={field.id} sx={{ mb: 2 }}>
+                    <Box key={field.id} sx={{ mb: 2, '&:hover .field-delete-btn': { opacity: 1 } }}>
                       <Box
                         sx={{
                           display: 'flex',
@@ -660,11 +828,14 @@ export const DealModal = ({
                         </Typography>
                         <Tooltip title="Удалить поле из карточки">
                           <IconButton
+                            className="field-delete-btn"
                             size="small"
                             onClick={() => handleDeleteField(field.id)}
                             sx={{
                               p: 0.5,
                               color: '#999',
+                              opacity: 0,
+                              transition: 'opacity 0.2s',
                               '&:hover': {
                                 color: '#f44336',
                                 backgroundColor: 'rgba(244, 67, 54, 0.08)',

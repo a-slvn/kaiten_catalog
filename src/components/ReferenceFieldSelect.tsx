@@ -167,6 +167,8 @@ export const ReferenceFieldSelect = ({
   return (
     <Autocomplete
       multiple={isMultiple}
+      disableCloseOnSelect={isMultiple}
+      filterSelectedOptions={isMultiple}
       value={isMultiple ? selectedEntries : selectedEntries[0] || null}
       onChange={handleChange}
       inputValue={inputValue}
@@ -192,10 +194,10 @@ export const ReferenceFieldSelect = ({
             onClick={handleCreateNew}
             size="small"
             sx={{
-              color: '#7B1FA2',
+              color: '#1976D2',
               textTransform: 'none',
               '&:hover': {
-                backgroundColor: 'rgba(123, 31, 162, 0.08)',
+                backgroundColor: 'rgba(25, 118, 210, 0.08)',
               },
             }}
           >
@@ -211,14 +213,6 @@ export const ReferenceFieldSelect = ({
           variant="outlined"
           InputProps={{
             ...params.InputProps,
-            startAdornment: (
-              <>
-                <InputAdornment position="start">
-                  <ContactsIcon sx={{ fontSize: '1.2rem', color: '#999' }} />
-                </InputAdornment>
-                {params.InputProps.startAdornment}
-              </>
-            ),
             endAdornment: (
               <>
                 {params.InputProps.endAdornment}
@@ -235,8 +229,8 @@ export const ReferenceFieldSelect = ({
                         p: 0.5,
                         color: '#999',
                         '&:hover': {
-                          color: '#7B1FA2',
-                          backgroundColor: 'rgba(123, 31, 162, 0.08)',
+                          color: '#1976D2',
+                          backgroundColor: 'rgba(25, 118, 210, 0.08)',
                         },
                       }}
                     >
@@ -251,6 +245,17 @@ export const ReferenceFieldSelect = ({
             '& .MuiOutlinedInput-root': {
               borderRadius: 2,
               backgroundColor: '#fff',
+              minHeight: 40,
+              alignItems: 'center',
+            },
+            '& .MuiAutocomplete-input': {
+              py: '7px !important',
+            },
+            '& .MuiAutocomplete-inputRoot': {
+              flexWrap: 'nowrap',
+            },
+            '& .MuiAutocomplete-tag': {
+              my: 0.25,
             },
           }}
         />
@@ -307,8 +312,8 @@ export const ReferenceFieldSelect = ({
                     color: '#999',
                     flexShrink: 0,
                     '&:hover': {
-                      color: '#7B1FA2',
-                      backgroundColor: 'rgba(123, 31, 162, 0.08)',
+                      color: '#1976D2',
+                      backgroundColor: 'rgba(25, 118, 210, 0.08)',
                     },
                   }}
                 >
@@ -319,52 +324,51 @@ export const ReferenceFieldSelect = ({
           </li>
         );
       }}
-      renderTags={(tagValue, getTagProps) =>
-        tagValue.map((option, index) => {
-          const { onDelete, ...chipProps } = getTagProps({ index });
-          return (
-            <Chip
-              {...chipProps}
-              key={option.id}
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                    {option.displayValue}
-                  </Typography>
-                  {onEdit && (
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit(option.id, e);
-                      }}
-                      sx={{
-                        p: 0.25,
-                        ml: 0.5,
-                        color: '#999',
-                        '&:hover': {
-                          color: '#7B1FA2',
-                          backgroundColor: 'rgba(123, 31, 162, 0.08)',
-                        },
-                      }}
-                    >
-                      <EditIcon sx={{ fontSize: '0.875rem' }} />
-                    </IconButton>
-                  )}
-                </Box>
-              }
-              size="small"
-              onDelete={onDelete}
-              sx={{
-                backgroundColor: '#f0f0f0',
-                '&:hover': {
-                  backgroundColor: '#e0e0e0',
-                },
-              }}
-            />
-          );
-        })
-      }
+      renderTags={(tagValue, getTagProps) => {
+        if (tagValue.length === 0) return [];
+
+        const visibleOption = tagValue[0];
+        const { onDelete, ...chipProps } = getTagProps({ index: 0 });
+        const hiddenCount = tagValue.length - 1;
+
+        return [
+          <Chip
+            {...chipProps}
+            key={visibleOption.id}
+            label={visibleOption.displayValue}
+            size="small"
+            onDelete={onDelete}
+            sx={{
+              backgroundColor: '#e8eef5',
+              color: '#334155',
+              maxWidth: 140,
+              '& .MuiChip-label': {
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              },
+              '& .MuiChip-deleteIcon': {
+                color: '#64748b',
+              },
+              '&:hover': {
+                backgroundColor: '#dde6f0',
+              },
+            }}
+          />,
+          ...(hiddenCount > 0
+            ? [
+              <Chip
+                key="selected-counter"
+                label={`+${hiddenCount}`}
+                size="small"
+                sx={{
+                  backgroundColor: '#eef2f7',
+                  color: '#475569',
+                }}
+              />,
+            ]
+            : []),
+        ];
+      }}
       ListboxProps={{
         style: {
           maxHeight: '300px',
@@ -398,12 +402,12 @@ export const ReferenceFieldSelect = ({
                   handleCreateNew();
                 }}
                 sx={{
-                  color: '#7B1FA2',
+                  color: '#1976D2',
                   cursor: 'pointer',
                   fontWeight: 500,
                   textDecoration: 'underline',
                   '&:hover': {
-                    color: '#6A1B9A',
+                    color: '#1565C0',
                   },
                 }}
               >

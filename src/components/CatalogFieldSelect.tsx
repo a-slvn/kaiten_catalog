@@ -1,19 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Autocomplete,
-  TextField,
-  Chip,
   Box,
-  IconButton,
-  Typography,
   Button,
+  Chip,
+  IconButton,
   InputAdornment,
+  TextField,
+  Tooltip,
+  Typography,
 } from '@mui/material';
 import {
-  Folder as FolderIcon,
-  OpenInNew as OpenInNewIcon,
   Add as AddIcon,
   Edit as EditIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { useCatalogs } from '../context/CatalogsContext';
 import { CatalogEntry } from '../types';
@@ -37,361 +37,300 @@ export const CatalogFieldSelect = ({
   onCreateNew,
   onEdit,
 }: Props) => {
-  const { getEntriesByCatalog, getCatalog } = useCatalogs();
+  const { getCatalog, getEntriesByCatalog } = useCatalogs();
   const [inputValue, setInputValue] = useState('');
 
-  const catalog = getCatalog(catalogId);
-  const allEntries = useMemo(() => {
-    return getEntriesByCatalog(catalogId);
-  }, [catalogId, getEntriesByCatalog]);
+  const allEntries = useMemo(() => getEntriesByCatalog(catalogId), [catalogId, getEntriesByCatalog]);
 
-  // Конвертируем value в массив ID для удобства работы
   const selectedIds = useMemo(() => {
     if (!value) return [];
     return Array.isArray(value) ? value : [value];
   }, [value]);
 
-  // Находим выбранные записи
-  const selectedEntries = useMemo(() => {
-    return allEntries.filter((entry) => selectedIds.includes(entry.id));
-  }, [allEntries, selectedIds]);
+  const selectedEntries = useMemo(
+    () => allEntries.filter((entry) => selectedIds.includes(entry.id)),
+    [allEntries, selectedIds]
+  );
 
-  // Обработчик изменения выбора
-  const handleChange = (_event: any, newValue: CatalogEntry | CatalogEntry[] | null) => {
+  const canCreate = Boolean(onCreateNew);
+  const canEdit = Boolean(onEdit);
+  const canOpenDetail = Boolean(onOpenDetail);
+
+  const handleChange = (_event: unknown, newValue: CatalogEntry | CatalogEntry[] | null) => {
     if (multiple) {
       const entries = (newValue as CatalogEntry[]) || [];
-      const ids = entries.map((entry) => entry.id);
-      onChange(ids);
-    } else {
-      const entry = newValue as CatalogEntry | null;
-      onChange(entry ? entry.id : '');
+      onChange(entries.map((entry) => entry.id));
+      return;
     }
+
+    const entry = newValue as CatalogEntry | null;
+    onChange(entry ? entry.id : '');
   };
 
-  // Обработчик создания новой записи
-  const handleCreateNew = () => {
-    if (onCreateNew) {
-      onCreateNew();
+  const handleCreateNew = (event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
     }
+    onCreateNew?.();
   };
 
-  // Обработчик открытия детального просмотра
   const handleOpenDetail = (entryId: string, event?: React.MouseEvent) => {
     if (event) {
+      event.preventDefault();
       event.stopPropagation();
     }
     onOpenDetail?.(entryId);
   };
 
-  // Обработчик редактирования записи
   const handleEdit = (entryId: string, event?: React.MouseEvent) => {
     if (event) {
+      event.preventDefault();
       event.stopPropagation();
     }
     onEdit?.(entryId, catalogId);
   };
 
-  // Пустое состояние - нет записей в каталоге
-  if (allEntries.length === 0) {
-    return (
-      <Box
-        sx={{
-          border: '1px dashed #ccc',
-          borderRadius: 2,
-          p: 2,
-          textAlign: 'center',
-          backgroundColor: '#fafafa',
+  return (
+    <Box>
+      <Autocomplete
+        multiple={multiple}
+        disableCloseOnSelect={multiple}
+        filterSelectedOptions={multiple}
+        value={multiple ? selectedEntries : selectedEntries[0] || null}
+        onChange={handleChange}
+        inputValue={inputValue}
+        onInputChange={(_, newInputValue) => setInputValue(newInputValue)}
+        options={allEntries}
+        getOptionLabel={(option) => option.displayValue}
+        isOptionEqualToValue={(option, entry) => option.id === entry.id}
+        filterOptions={(_options, state) => {
+          const query = state.inputValue.toLowerCase().trim();
+          if (!query) return allEntries;
+          return allEntries.filter((option) => option.displayValue.toLowerCase().includes(query));
         }}
-      >
-        <FolderIcon sx={{ fontSize: 40, color: '#bbb', mb: 1 }} />
-        <Typography variant="body2" sx={{ color: '#999', mb: 1.5 }}>
-          Нет записей в каталоге "{catalog?.name || 'Каталог'}".
-          {onCreateNew ? ' Создайте первую запись.' : ''}
-        </Typography>
-        {onCreateNew && (
-          <Button
-            startIcon={<AddIcon />}
-            onClick={handleCreateNew}
+        noOptionsText={
+          <Box sx={{ textAlign: 'center', py: 1 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: canCreate ? 1 : 0 }}>
+              {allEntries.length === 0 ? 'Данных пока нет. Создайте запись.' : 'Ничего не найдено'}
+            </Typography>
+            {canCreate && (
+              <Button
+                startIcon={<AddIcon />}
+                onClick={handleCreateNew}
+                size="small"
+                sx={{ textTransform: 'none' }}
+              >
+                Создать запись
+              </Button>
+            )}
+          </Box>
+        }
+        renderInput={(params) => (
+          <TextField
+            {...params}
             size="small"
+            placeholder={selectedIds.length === 0 ? 'Выбрать из каталога' : 'Начните ввод для поиска'}
             variant="outlined"
+            InputProps={{
+              ...params.InputProps,
+              endAdornment: (
+                <>
+                  {params.InputProps.endAdornment}
+                  {!multiple && selectedIds.length > 0 && canEdit && (
+                    <InputAdornment position="end">
+                      <Tooltip title="Редактировать выбранную запись">
+                        <IconButton
+                          size="small"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={(event) => handleEdit(selectedIds[0], event)}
+                          sx={{ p: 0.5 }}
+                        >
+                          <EditIcon sx={{ fontSize: '1rem' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </InputAdornment>
+                  )}
+                </>
+              ),
+            }}
             sx={{
-              color: '#1976D2',
-              borderColor: '#1976D2',
-              textTransform: 'none',
-              '&:hover': {
-                borderColor: '#1565C0',
-                backgroundColor: 'rgba(25, 118, 210, 0.04)',
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                backgroundColor: '#fff',
+                minHeight: 40,
+                alignItems: 'center',
+              },
+              '& .MuiAutocomplete-input': {
+                py: '7px !important',
+              },
+              '& .MuiAutocomplete-inputRoot': {
+                flexWrap: 'nowrap',
+              },
+              '& .MuiAutocomplete-tag': {
+                my: 0.25,
               },
             }}
-          >
-            Создать запись
-          </Button>
+          />
         )}
-      </Box>
-    );
-  }
+        renderOption={(props, option) => {
+          const optionCatalog = getCatalog(option.catalogId);
+          const detailFields = option.fields
+            .slice(0, 2)
+            .map((fieldValue) => {
+              const fieldDef = optionCatalog?.fields.find((f) => f.id === fieldValue.fieldId);
+              const displayValue = Array.isArray(fieldValue.value)
+                ? fieldValue.value.join(', ')
+                : fieldValue.value;
 
-  // Основной компонент - Autocomplete
-  return (
-    <Autocomplete
-      multiple={multiple}
-      value={multiple ? selectedEntries : selectedEntries[0] || null}
-      onChange={handleChange}
-      inputValue={inputValue}
-      onInputChange={(_, newInputValue) => setInputValue(newInputValue)}
-      options={allEntries}
-      getOptionLabel={(option) => option.displayValue}
-      isOptionEqualToValue={(option, value) => option.id === value.id}
-      filterOptions={(_options, state) => {
-        return allEntries.filter((option) =>
-          option.displayValue.toLowerCase().includes(state.inputValue.toLowerCase())
-        );
-      }}
-      noOptionsText={
-        <Box sx={{ textAlign: 'center', py: 1 }}>
-          <Typography variant="body2" sx={{ color: '#999', mb: 1 }}>
-            Нет записей
-          </Typography>
-          {onCreateNew && (
-            <Button
-              startIcon={<AddIcon />}
-              onClick={handleCreateNew}
-              size="small"
-              sx={{
-                color: '#1976D2',
-                textTransform: 'none',
-                '&:hover': {
-                  backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                },
-              }}
-            >
-              Создать новую запись
-            </Button>
-          )}
-        </Box>
-      }
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          size="small"
-          placeholder={selectedIds.length === 0 ? 'Выбрать из каталога' : ''}
-          variant="outlined"
-          InputProps={{
-            ...params.InputProps,
-            startAdornment: (
-              <>
-                <InputAdornment position="start">
-                  <FolderIcon sx={{ fontSize: '1.2rem', color: '#1976D2' }} />
-                </InputAdornment>
-                {params.InputProps.startAdornment}
-              </>
-            ),
-            endAdornment: (
-              <>
-                {params.InputProps.endAdornment}
-                {/* Кнопка редактирования для одиночного выбора */}
-                {!multiple && selectedIds.length > 0 && onEdit && (
-                  <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit(selectedIds[0]);
-                      }}
-                      sx={{
-                        p: 0.5,
-                        color: '#999',
-                        '&:hover': {
-                          color: '#1976D2',
-                          backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                        },
-                      }}
-                    >
-                      <EditIcon sx={{ fontSize: '1rem' }} />
-                    </IconButton>
-                  </InputAdornment>
-                )}
-              </>
-            ),
-          }}
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-              backgroundColor: '#fff',
-            },
-          }}
-        />
-      )}
-      renderOption={(props, option) => {
-        // Получаем поля записи для детального отображения
-        const catalog = getCatalog(option.catalogId);
-        const detailFields = option.fields
-          .slice(0, 3)
-          .map((fieldValue) => {
-            const fieldDef = catalog?.fields.find((f) => f.id === fieldValue.fieldId);
-            const displayValue = Array.isArray(fieldValue.value)
-              ? fieldValue.value.join(', ')
-              : fieldValue.value;
-            return `${fieldDef?.name || fieldValue.fieldId}: ${displayValue}`;
-          })
-          .join(', ');
+              return `${fieldDef?.name || fieldValue.fieldId}: ${displayValue}`;
+            })
+            .join(' · ');
 
-        return (
-          <li {...props} key={option.id}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                width: '100%',
-                py: 1,
-              }}
-            >
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
-                  {option.displayValue}
-                </Typography>
-                {detailFields && (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: '#999',
-                      display: 'block',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {detailFields}
-                  </Typography>
-                )}
-              </Box>
-              {onOpenDetail && (
-                <IconButton
-                  size="small"
-                  onClick={(e) => handleOpenDetail(option.id, e)}
-                  sx={{
-                    ml: 1,
-                    p: 0.5,
-                    color: '#999',
-                    flexShrink: 0,
-                    '&:hover': {
-                      color: '#1976D2',
-                      backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                    },
-                  }}
-                >
-                  <OpenInNewIcon sx={{ fontSize: '1rem' }} />
-                </IconButton>
-              )}
-            </Box>
-          </li>
-        );
-      }}
-      renderTags={(tagValue, getTagProps) =>
-        tagValue.map((option, index) => {
-          const { onDelete, ...chipProps } = getTagProps({ index });
           return (
-            <Chip
-              {...chipProps}
-              key={option.id}
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+            <li {...props} key={option.id}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  py: 0.75,
+                  gap: 1,
+                }}
+              >
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {option.displayValue}
                   </Typography>
-                  {onEdit && (
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit(option.id, e);
-                      }}
+                  {detailFields && (
+                    <Typography
+                      variant="caption"
                       sx={{
-                        p: 0.25,
-                        ml: 0.5,
-                        color: '#999',
-                        '&:hover': {
-                          color: '#1976D2',
-                          backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                        },
+                        color: 'text.secondary',
+                        display: 'block',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      <EditIcon sx={{ fontSize: '0.875rem' }} />
-                    </IconButton>
+                      {detailFields}
+                    </Typography>
                   )}
                 </Box>
-              }
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+                  {canEdit && (
+                    <Tooltip title="Редактировать">
+                      <IconButton
+                        size="small"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={(event) => handleEdit(option.id, event)}
+                        sx={{ p: 0.5 }}
+                      >
+                        <EditIcon sx={{ fontSize: '0.95rem' }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  {canOpenDetail && (
+                    <Tooltip title="Открыть карточку">
+                      <IconButton
+                        size="small"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={(event) => handleOpenDetail(option.id, event)}
+                        sx={{ p: 0.5 }}
+                      >
+                        <OpenInNewIcon sx={{ fontSize: '0.95rem' }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+              </Box>
+            </li>
+          );
+        }}
+        renderTags={(tagValue, getTagProps) => {
+          if (tagValue.length === 0) return [];
+
+          const visibleOption = tagValue[0];
+          const { onDelete, ...chipProps } = getTagProps({ index: 0 });
+          const hiddenCount = tagValue.length - 1;
+
+          return [
+            <Chip
+              {...chipProps}
+              key={visibleOption.id}
+              label={visibleOption.displayValue}
               size="small"
               onDelete={onDelete}
               sx={{
-                backgroundColor: '#E3F2FD',
-                '&:hover': {
-                  backgroundColor: '#BBDEFB',
+                backgroundColor: '#e8eef5',
+                color: '#334155',
+                maxWidth: 140,
+                '& .MuiChip-label': {
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                 },
+                '& .MuiChip-deleteIcon': {
+                  color: '#64748b',
+                },
+                '&:hover': { backgroundColor: '#dde6f0' },
               }}
-            />
-          );
-        })
-      }
-      ListboxProps={{
-        style: {
-          maxHeight: '300px',
-        },
-      }}
-      ListboxComponent={(listboxProps) => (
-        <Box {...listboxProps} component="ul">
-          {/* Заголовок/подсказка с кнопкой создания */}
-          <Box
-            sx={{
-              px: 2,
-              py: 1.5,
-              borderBottom: '1px solid #e0e0e0',
-              backgroundColor: '#fafafa',
-              position: 'sticky',
-              top: 0,
-              zIndex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Typography variant="caption" sx={{ color: '#666' }}>
-              {onCreateNew ? (
-                <>
-                  Выберите запись или{' '}
-                  <Typography
-                    component="span"
-                    variant="caption"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleCreateNew();
-                    }}
-                    sx={{
-                      color: '#1976D2',
-                      cursor: 'pointer',
-                      fontWeight: 500,
-                      textDecoration: 'underline',
-                      '&:hover': {
-                        color: '#1565C0',
-                      },
-                    }}
-                  >
-                    создайте новую
-                  </Typography>
-                </>
-              ) : (
-                'Выберите запись'
+            />,
+            ...(hiddenCount > 0
+              ? [
+                <Chip
+                  key="selected-counter"
+                  label={`+${hiddenCount}`}
+                  size="small"
+                  sx={{
+                    backgroundColor: '#eef2f7',
+                    color: '#475569',
+                  }}
+                />,
+              ]
+              : []),
+          ];
+        }}
+        ListboxProps={{
+          style: { maxHeight: '300px' },
+        }}
+        ListboxComponent={(listboxProps) => (
+          <Box {...listboxProps} component="ul">
+            <Box
+              sx={{
+                px: 2,
+                py: 1,
+                borderBottom: '1px solid #e2e8f0',
+                backgroundColor: '#f8fafc',
+                position: 'sticky',
+                top: 0,
+                zIndex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 1,
+              }}
+            >
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {multiple ? 'Выберите одно или несколько значений' : 'Выберите значение из списка'}
+              </Typography>
+              {canCreate && (
+                <Button
+                  size="small"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={handleCreateNew}
+                  startIcon={<AddIcon sx={{ fontSize: '0.95rem' }} />}
+                  sx={{ textTransform: 'none', minWidth: 'max-content' }}
+                >
+                  Создать
+                </Button>
               )}
-            </Typography>
+            </Box>
+            {listboxProps.children}
           </Box>
-          {listboxProps.children}
-        </Box>
-      )}
-      sx={{
-        width: '100%',
-      }}
-    />
+        )}
+        sx={{ width: '100%' }}
+      />
+    </Box>
   );
 };
