@@ -32,7 +32,7 @@ import {
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
-import { CatalogEntry, Deal } from '../types';
+import { Catalog, CatalogEntry, Deal } from '../types';
 import { useState, useEffect } from 'react';
 import { AddFieldMenu } from './AddFieldMenu';
 import { ReferenceFieldDisplay } from './ReferenceFieldDisplay';
@@ -101,6 +101,7 @@ export const DealModal = ({
   const [editingCatalogEntry, setEditingCatalogEntry] = useState<{ entryId: string; catalogId: string } | null>(null);
   const [editingEntry, setEditingEntry] = useState<{ entryId: string; referenceId: string } | null>(null);
   const [expandedCatalogDetails, setExpandedCatalogDetails] = useState<Record<string, boolean>>({});
+  const [expandedCatalogGroups, setExpandedCatalogGroups] = useState<Record<string, boolean>>({});
 
   // Загрузка данных при смене сделки
   useEffect(() => {
@@ -265,7 +266,14 @@ export const DealModal = ({
     const detailsKey = getCatalogDetailsKey(fieldId, entryId);
     setExpandedCatalogDetails((prev) => ({
       ...prev,
-      [detailsKey]: !(prev[detailsKey] ?? true),
+      [detailsKey]: !(prev[detailsKey] ?? false),
+    }));
+  };
+
+  const toggleCatalogGroup = (fieldId: string) => {
+    setExpandedCatalogGroups((prev) => ({
+      ...prev,
+      [fieldId]: !(prev[fieldId] ?? false),
     }));
   };
 
@@ -294,6 +302,44 @@ export const DealModal = ({
     }
 
     return String(value);
+  };
+
+  const getCatalogEntrySummary = (entry: CatalogEntry, catalog?: Catalog): string => {
+    const MAX_SUMMARY_FIELDS = 3;
+    const MAX_SUMMARY_LENGTH = 96;
+    const parts: string[] = [];
+    let totalLength = 0;
+    let truncated = false;
+
+    for (const fieldValue of entry.fields) {
+      if (parts.length >= MAX_SUMMARY_FIELDS) {
+        truncated = true;
+        break;
+      }
+
+      const formatted = formatCatalogFieldValue(fieldValue.value);
+      if (formatted === '-' || formatted === entry.displayValue) {
+        continue;
+      }
+
+      const fieldName = catalog?.fields.find((fieldDef) => fieldDef.id === fieldValue.fieldId)?.name || fieldValue.fieldId;
+      const part = `${fieldName}: ${formatted}`;
+      const projectedLength = parts.length === 0 ? part.length : totalLength + 3 + part.length; // " · "
+
+      if (projectedLength > MAX_SUMMARY_LENGTH) {
+        truncated = true;
+        break;
+      }
+
+      parts.push(part);
+      totalLength = projectedLength;
+    }
+
+    if (parts.length === 0) {
+      return '';
+    }
+
+    return `${parts.join(' · ')}${truncated ? '…' : ''}`;
   };
 
   const handleCreateNewEntry = (fieldId: string, referenceId: string) => {
@@ -667,6 +713,11 @@ export const DealModal = ({
                     const selectedCatalogEntries = selectedCatalogIds
                       .map((id) => getCatalogEntry(id))
                       .filter((entry): entry is CatalogEntry => Boolean(entry));
+                    const groupExpanded = expandedCatalogGroups[field.id] ?? false;
+                    const visibleCatalogEntries = groupExpanded
+                      ? selectedCatalogEntries
+                      : selectedCatalogEntries.slice(0, 3);
+                    const hiddenEntriesCount = selectedCatalogEntries.length - visibleCatalogEntries.length;
 
                     return (
                       <Box key={field.id} sx={{ mb: 2, '&:hover .field-delete-btn': { opacity: 1 } }}>
@@ -721,11 +772,56 @@ export const DealModal = ({
                           </Tooltip>
 
                           {selectedCatalogEntries.length > 0 && (
-                            <Box sx={{ gridColumn: '1 / 4' }}>
+                            <Box sx={{ gridColumn: '2 / 3' }}>
+                              <Box
+                                sx={{
+                                  mt: 0.25,
+                                  mb: 0.25,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: 1,
+                                }}
+                              >
+                                <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
+                                  Выбранные значения ({selectedCatalogEntries.length})
+                                </Typography>
+                                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                  {isMulti && selectedCatalogEntries.length > 0 && (
+                                    <Button
+                                      size="small"
+                                      onClick={() => handleFieldValueChange(field.id, [])}
+                                      sx={{ textTransform: 'none', minWidth: 'max-content', px: 0.75 }}
+                                    >
+                                      Очистить все
+                                    </Button>
+                                  )}
+                                  {hiddenEntriesCount > 0 && (
+                                    <Button
+                                      size="small"
+                                      onClick={() => toggleCatalogGroup(field.id)}
+                                      sx={{ textTransform: 'none', minWidth: 'max-content', px: 0.75 }}
+                                    >
+                                      Показать ещё {hiddenEntriesCount}
+                                    </Button>
+                                  )}
+                                  {groupExpanded && selectedCatalogEntries.length > 3 && (
+                                    <Button
+                                      size="small"
+                                      onClick={() => toggleCatalogGroup(field.id)}
+                                      sx={{ textTransform: 'none', minWidth: 'max-content', px: 0.75 }}
+                                    >
+                                      Свернуть список
+                                    </Button>
+                                  )}
+                                </Box>
+                              </Box>
+
                               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                                {selectedCatalogEntries.map((entry) => {
+                                {visibleCatalogEntries.map((entry) => {
                                   const detailsKey = getCatalogDetailsKey(field.id, entry.id);
-                                  const detailsExpanded = expandedCatalogDetails[detailsKey] ?? true;
+                                  const detailsExpanded = expandedCatalogDetails[detailsKey] ?? false;
+                                  const summary = getCatalogEntrySummary(entry, catalog);
 
                                   return (
                                     <Box
@@ -745,9 +841,28 @@ export const DealModal = ({
                                           mb: detailsExpanded ? 0.75 : 0,
                                         }}
                                       >
-                                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
-                                          {entry.displayValue}
-                                        </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 1, flex: 1, pr: 1 }}>
+                                          <Typography
+                                            variant="body2"
+                                            sx={{ fontWeight: 600, color: '#333', flexShrink: 0 }}
+                                          >
+                                            {entry.displayValue}
+                                          </Typography>
+                                          {!detailsExpanded && summary && (
+                                            <Typography
+                                              variant="caption"
+                                              sx={{
+                                                color: '#666',
+                                                minWidth: 0,
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                              }}
+                                            >
+                                              {summary}
+                                            </Typography>
+                                          )}
+                                        </Box>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
                                           {catalog?.isEditable && (
                                             <Tooltip title="Редактировать запись">

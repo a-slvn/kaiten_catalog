@@ -209,7 +209,7 @@ export const ReferenceFieldSelect = ({
         <TextField
           {...params}
           size="small"
-          placeholder={selectedIds.length === 0 ? 'Добавить значение' : ''}
+          placeholder={selectedIds.length === 0 ? 'Выбрать из списка' : ''}
           variant="outlined"
           InputProps={{
             ...params.InputProps,
@@ -327,46 +327,22 @@ export const ReferenceFieldSelect = ({
       renderTags={(tagValue, getTagProps) => {
         if (tagValue.length === 0) return [];
 
-        const visibleOption = tagValue[0];
-        const { onDelete, ...chipProps } = getTagProps({ index: 0 });
-        const hiddenCount = tagValue.length - 1;
+        const { onDelete: _onDelete, ...chipProps } = getTagProps({ index: 0 });
 
         return [
           <Chip
             {...chipProps}
-            key={visibleOption.id}
-            label={visibleOption.displayValue}
+            key="selected-counter"
+            label={`${tagValue.length} выбрано`}
             size="small"
-            onDelete={onDelete}
             sx={{
               backgroundColor: '#e8eef5',
               color: '#334155',
-              maxWidth: 140,
-              '& .MuiChip-label': {
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              },
-              '& .MuiChip-deleteIcon': {
-                color: '#64748b',
-              },
               '&:hover': {
                 backgroundColor: '#dde6f0',
               },
             }}
           />,
-          ...(hiddenCount > 0
-            ? [
-              <Chip
-                key="selected-counter"
-                label={`+${hiddenCount}`}
-                size="small"
-                sx={{
-                  backgroundColor: '#eef2f7',
-                  color: '#475569',
-                }}
-              />,
-            ]
-            : []),
         ];
       }}
       ListboxProps={{
