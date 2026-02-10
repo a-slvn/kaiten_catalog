@@ -19,6 +19,11 @@ import {
   Popover,
   FormControlLabel,
   Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -55,6 +60,7 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [hiddenFields, setHiddenFields] = useState<Set<string>>(new Set());
   const [settingsAnchor, setSettingsAnchor] = useState<null | HTMLElement>(null);
+  const [entryIdToDelete, setEntryIdToDelete] = useState<string | null>(null);
 
   const catalog = getCatalog(catalogId);
   const entries = getEntriesByCatalog(catalogId);
@@ -146,9 +152,16 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
 
   const handleDeleteEntry = (entryId: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    if (window.confirm('Вы уверены, что хотите удалить эту запись?')) {
-      deleteEntry(entryId);
+    setEntryIdToDelete(entryId);
+  };
+
+  const handleConfirmDeleteEntry = () => {
+    if (!entryIdToDelete) {
+      return;
     }
+
+    deleteEntry(entryIdToDelete);
+    setEntryIdToDelete(null);
   };
 
   const handleOpenDetail = (entryId: string) => {
@@ -227,6 +240,10 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
       </Box>
     );
   }
+
+  const entryToDelete = entryIdToDelete
+    ? entries.find((entry) => entry.id === entryIdToDelete)
+    : null;
 
   return (
     <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
@@ -491,6 +508,27 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
           onEdit={handleEditFromDetail}
         />
       )}
+
+      <Dialog
+        open={Boolean(entryIdToDelete)}
+        onClose={() => setEntryIdToDelete(null)}
+        aria-labelledby="confirm-delete-catalog-entry-title"
+      >
+        <DialogTitle id="confirm-delete-catalog-entry-title">Удалить запись?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Запись "{entryToDelete?.displayValue || 'без названия'}" будет удалена без возможности восстановления.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setEntryIdToDelete(null)} sx={{ textTransform: 'none' }}>
+            Отмена
+          </Button>
+          <Button onClick={handleConfirmDeleteEntry} color="error" variant="contained" sx={{ textTransform: 'none' }}>
+            Удалить
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

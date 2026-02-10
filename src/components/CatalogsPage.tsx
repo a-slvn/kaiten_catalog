@@ -13,6 +13,11 @@ import {
   IconButton,
   Chip,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -31,6 +36,7 @@ export const CatalogsPage = ({ onOpenCatalog }: CatalogsPageProps) => {
   const { catalogs, deleteCatalog, getEntriesByCatalog } = useCatalogs();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingCatalogId, setEditingCatalogId] = useState<string | null>(null);
+  const [catalogIdToDelete, setCatalogIdToDelete] = useState<string | null>(null);
 
   const handleCreateCatalog = () => {
     setEditingCatalogId(null);
@@ -45,9 +51,16 @@ export const CatalogsPage = ({ onOpenCatalog }: CatalogsPageProps) => {
 
   const handleDeleteCatalog = (catalogId: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    if (window.confirm('Вы уверены, что хотите удалить этот каталог? Все записи каталога также будут удалены.')) {
-      deleteCatalog(catalogId);
+    setCatalogIdToDelete(catalogId);
+  };
+
+  const handleConfirmDeleteCatalog = () => {
+    if (!catalogIdToDelete) {
+      return;
     }
+
+    deleteCatalog(catalogIdToDelete);
+    setCatalogIdToDelete(null);
   };
 
   const handleCloseDialog = () => {
@@ -62,6 +75,11 @@ export const CatalogsPage = ({ onOpenCatalog }: CatalogsPageProps) => {
       year: 'numeric',
     });
   };
+
+  const catalogToDelete = catalogIdToDelete
+    ? catalogs.find((catalog) => catalog.id === catalogIdToDelete)
+    : null;
+  const catalogEntriesToDelete = catalogToDelete ? getEntriesByCatalog(catalogToDelete.id).length : 0;
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
@@ -216,6 +234,28 @@ export const CatalogsPage = ({ onOpenCatalog }: CatalogsPageProps) => {
         onClose={handleCloseDialog}
         editingCatalogId={editingCatalogId}
       />
+
+      <Dialog
+        open={Boolean(catalogIdToDelete)}
+        onClose={() => setCatalogIdToDelete(null)}
+        aria-labelledby="confirm-delete-catalog-title"
+      >
+        <DialogTitle id="confirm-delete-catalog-title">Удалить каталог?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Каталог "{catalogToDelete?.name || 'без названия'}" и все его записи ({catalogEntriesToDelete}) будут удалены без
+            возможности восстановления.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setCatalogIdToDelete(null)} sx={{ textTransform: 'none' }}>
+            Отмена
+          </Button>
+          <Button onClick={handleConfirmDeleteCatalog} color="error" variant="contained" sx={{ textTransform: 'none' }}>
+            Удалить
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
