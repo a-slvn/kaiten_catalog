@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -36,20 +36,32 @@ import {
 } from '@mui/icons-material';
 import { useCatalogs } from '../context/CatalogsContext';
 import { useReferenceEntries } from '../context/ReferenceEntriesContext';
+import { useDealsContext } from '../context/DealsContext';
 import { CreateCatalogEntryDialog } from './CreateCatalogEntryDialog';
 import { CatalogEntryDetailDialog } from './CatalogEntryDetailDialog';
+import { DealModal } from './DealModal';
 import { CatalogEntry, CatalogFieldDef } from '../types';
 
 interface CatalogDetailPageProps {
   catalogId: string;
   onBack: () => void;
+  onOpenCatalog?: (catalogId: string, entryId?: string) => void;
+  entryIdToOpen?: string | null;
+  onEntryOpened?: () => void;
 }
 
 type SortDirection = 'asc' | 'desc';
 
-export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps) => {
+export const CatalogDetailPage = ({
+  catalogId,
+  onBack,
+  onOpenCatalog,
+  entryIdToOpen,
+  onEntryOpened,
+}: CatalogDetailPageProps) => {
   const { getCatalog, getEntriesByCatalog, deleteEntry, getEntry: getCatalogEntry } = useCatalogs();
   const { getEntry: getReferenceEntry } = useReferenceEntries();
+  const { deals } = useDealsContext();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -61,6 +73,7 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
   const [hiddenFields, setHiddenFields] = useState<Set<string>>(new Set());
   const [settingsAnchor, setSettingsAnchor] = useState<null | HTMLElement>(null);
   const [entryIdToDelete, setEntryIdToDelete] = useState<string | null>(null);
+  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
 
   const catalog = getCatalog(catalogId);
   const entries = getEntriesByCatalog(catalogId);
@@ -187,6 +200,25 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
     }
   };
 
+  const handleOpenDeal = (dealId: string) => {
+    setSelectedDealId(dealId);
+  };
+
+  const handleCloseDeal = () => {
+    setSelectedDealId(null);
+  };
+
+  const handleOpenCatalogEntry = (targetCatalogId: string, targetEntryId: string) => {
+    if (targetCatalogId === catalogId) {
+      setSelectedEntryId(targetEntryId);
+      setDetailDialogOpen(true);
+      return;
+    }
+
+    setDetailDialogOpen(false);
+    onOpenCatalog?.(targetCatalogId, targetEntryId);
+  };
+
   // Получение отображаемого значения поля
   const getFieldDisplayValue = (entry: CatalogEntry, fieldDef: CatalogFieldDef): string => {
     const fieldValue = entry.fields.find((f) => f.fieldId === fieldDef.id);
@@ -244,6 +276,17 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
   const entryToDelete = entryIdToDelete
     ? entries.find((entry) => entry.id === entryIdToDelete)
     : null;
+  const selectedDeal = deals.find((deal) => deal.id === selectedDealId) || null;
+
+  useEffect(() => {
+    if (!entryIdToOpen) {
+      return;
+    }
+
+    setSelectedEntryId(entryIdToOpen);
+    setDetailDialogOpen(true);
+    onEntryOpened?.();
+  }, [entryIdToOpen, onEntryOpened]);
 
   return (
     <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
@@ -506,8 +549,16 @@ export const CatalogDetailPage = ({ catalogId, onBack }: CatalogDetailPageProps)
           catalog={catalog}
           entryId={selectedEntryId}
           onEdit={handleEditFromDetail}
+          onOpenCatalogEntry={handleOpenCatalogEntry}
+          onOpenDeal={handleOpenDeal}
         />
       )}
+
+      <DealModal
+        open={Boolean(selectedDealId)}
+        onClose={handleCloseDeal}
+        deal={selectedDeal}
+      />
 
       <Dialog
         open={Boolean(entryIdToDelete)}

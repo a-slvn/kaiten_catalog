@@ -16,6 +16,7 @@ function App() {
   const kanbanRef = useRef<KanbanBoardHandle>(null);
   const [activeItem, setActiveItem] = useState<string>('custom-fields');
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
+  const [selectedCatalogEntryId, setSelectedCatalogEntryId] = useState<string | null>(null);
 
   const handleClearAllData = () => {
     kanbanRef.current?.clearAllData();
@@ -28,13 +29,15 @@ function App() {
     }
   };
 
-  const handleOpenCatalog = (catalogId: string) => {
+  const handleOpenCatalog = (catalogId: string, entryId?: string) => {
     setSelectedCatalogId(catalogId);
+    setSelectedCatalogEntryId(entryId || null);
     setActiveItem('catalog-detail');
   };
 
   const handleBackToCatalogs = () => {
     setSelectedCatalogId(null);
+    setSelectedCatalogEntryId(null);
     setActiveItem('catalogs');
   };
 
@@ -49,6 +52,9 @@ function App() {
           <CatalogDetailPage
             catalogId={selectedCatalogId}
             onBack={handleBackToCatalogs}
+            onOpenCatalog={handleOpenCatalog}
+            entryIdToOpen={selectedCatalogEntryId}
+            onEntryOpened={() => setSelectedCatalogEntryId(null)}
           />
         ) : (
           <CatalogsPage onOpenCatalog={handleOpenCatalog} />
