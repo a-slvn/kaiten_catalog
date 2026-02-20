@@ -41,6 +41,7 @@ import { CustomFieldDefinition, ReferenceFieldDef, useCustomFields } from '../co
 import { CreateReferenceEntryDialog } from './CreateReferenceEntryDialog';
 import { CreateCatalogEntryDialog } from './CreateCatalogEntryDialog';
 import { CatalogEntryDetailDialog } from './CatalogEntryDetailDialog';
+import ReferenceEntryDetailDialog from './ReferenceEntryDetailDialog';
 import { useReferenceEntries } from '../context/ReferenceEntriesContext';
 import { useCatalogs } from '../context/CatalogsContext';
 
@@ -103,6 +104,9 @@ export const DealModal = ({
   const [creatingNewForCatalog, setCreatingNewForCatalog] = useState<{ fieldId: string; catalogId: string } | null>(null);
   const [editingCatalogEntry, setEditingCatalogEntry] = useState<{ entryId: string; catalogId: string } | null>(null);
   const [viewingCatalogEntry, setViewingCatalogEntry] = useState<{ entryId: string; catalogId: string } | null>(null);
+  const [viewingReferenceEntryId, setViewingReferenceEntryId] = useState<string | null>(null);
+  const [catalogBreadcrumbSource, setCatalogBreadcrumbSource] = useState<{ catalogId: string; entryId: string } | null>(null);
+  const [referenceBreadcrumbSource, setReferenceBreadcrumbSource] = useState<{ catalogId: string; entryId: string } | null>(null);
   const [editingEntry, setEditingEntry] = useState<{ entryId: string; referenceId: string } | null>(null);
   const [expandedCatalogDetails, setExpandedCatalogDetails] = useState<Record<string, boolean>>({});
   const [expandedCatalogGroups, setExpandedCatalogGroups] = useState<Record<string, boolean>>({});
@@ -151,6 +155,14 @@ export const DealModal = ({
       console.error('Failed to save deal values to localStorage:', error);
     }
   }, [fieldValues, deal]);
+
+  useEffect(() => {
+    if (open) return;
+    setViewingCatalogEntry(null);
+    setViewingReferenceEntryId(null);
+    setCatalogBreadcrumbSource(null);
+    setReferenceBreadcrumbSource(null);
+  }, [open]);
 
   const handleAddMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAddMenuAnchor(event.currentTarget);
@@ -209,6 +221,51 @@ export const DealModal = ({
   const handleCatalogEntryUpdated = () => {
     setEditingCatalogEntry(null);
   };
+
+  const handleOpenCatalogEntryFromDetail = (catalogId: string, entryId: string) => {
+    if (
+      viewingCatalogEntry &&
+      (viewingCatalogEntry.catalogId !== catalogId || viewingCatalogEntry.entryId !== entryId)
+    ) {
+      setCatalogBreadcrumbSource({
+        catalogId: viewingCatalogEntry.catalogId,
+        entryId: viewingCatalogEntry.entryId,
+      });
+    } else {
+      setCatalogBreadcrumbSource(null);
+    }
+
+    setReferenceBreadcrumbSource(null);
+    setViewingReferenceEntryId(null);
+    setViewingCatalogEntry({ catalogId, entryId });
+  };
+
+  const handleOpenReferenceEntryFromDetail = (entryId: string) => {
+    const catalogEntry = getCatalogEntry(entryId);
+
+    // Fallback для mixed-данных: если ID относится к каталогу, открываем карточку каталога.
+    if (catalogEntry) {
+      handleOpenCatalogEntryFromDetail(catalogEntry.catalogId, catalogEntry.id);
+      return;
+    }
+
+    if (viewingCatalogEntry) {
+      setReferenceBreadcrumbSource({
+        catalogId: viewingCatalogEntry.catalogId,
+        entryId: viewingCatalogEntry.entryId,
+      });
+    }
+
+    setViewingCatalogEntry(null);
+    setViewingReferenceEntryId(entryId);
+  };
+
+  const referenceBreadcrumbLabel = referenceBreadcrumbSource
+    ? getCatalogEntry(referenceBreadcrumbSource.entryId)?.displayValue || 'Карточка'
+    : '';
+  const catalogBreadcrumbLabel = catalogBreadcrumbSource
+    ? getCatalogEntry(catalogBreadcrumbSource.entryId)?.displayValue || 'Карточка'
+    : '';
 
   const handleFieldValueChange = (fieldId: string, value: string | string[]) => {
     setFieldValues((prev) => ({ ...prev, [fieldId]: value }));
@@ -336,12 +393,18 @@ export const DealModal = ({
         break;
       }
 
+      // Пропускаем reference/catalog_ref — их значения это ID, которые без контекста выглядят как мусор
+      const fieldDef = catalog?.fields.find((fd) => fd.id === fieldValue.fieldId);
+      if (fieldDef?.type === 'reference' || fieldDef?.type === 'catalog_ref') {
+        continue;
+      }
+
       const formatted = formatCatalogFieldValue(fieldValue.value);
       if (formatted === '-' || formatted === entry.displayValue) {
         continue;
       }
 
-      const fieldName = catalog?.fields.find((fieldDef) => fieldDef.id === fieldValue.fieldId)?.name || fieldValue.fieldId;
+      const fieldName = fieldDef?.name || fieldValue.fieldId;
       const part = `${fieldName}: ${formatted}`;
       const projectedLength = parts.length === 0 ? part.length : totalLength + 3 + part.length; // " · "
 
@@ -869,7 +932,7 @@ export const DealModal = ({
                                     }}
                                   >
                                     <Box
-                                      onClick={() => setViewingCatalogEntry({ entryId: entry.id, catalogId: field.catalogId! })}
+                                      onClick={() => handleOpenCatalogEntryFromDetail(field.catalogId!, entry.id)}
                                       onKeyDown={(event) => handleCatalogCardKeyDown(event, entry.id, field.catalogId!)}
                                       role="button"
                                       tabIndex={0}
@@ -1234,11 +1297,45 @@ export const DealModal = ({
             onEdit={() => {
               setEditingCatalogEntry({ entryId: viewingCatalogEntry.entryId, catalogId: viewingCatalogEntry.catalogId });
               setViewingCatalogEntry(null);
+              setCatalogBreadcrumbSource(null);
             }}
+            onOpenCatalogEntry={handleOpenCatalogEntryFromDetail}
+            onOpenReferenceEntry={handleOpenReferenceEntryFromDetail}
             onOpenDeal={onOpenDeal}
+            breadcrumbsPrefix={catalogBreadcrumbSource
+              ? [{
+                  label: catalogBreadcrumbLabel,
+                  onClick: () => {
+                    handleOpenCatalogEntryFromDetail(
+                      catalogBreadcrumbSource.catalogId,
+                      catalogBreadcrumbSource.entryId
+                    );
+                    setCatalogBreadcrumbSource(null);
+                  },
+                }]
+              : undefined}
           />
         ) : null;
       })()}
+
+      <ReferenceEntryDetailDialog
+        open={Boolean(viewingReferenceEntryId)}
+        entryId={viewingReferenceEntryId}
+        onClose={() => {
+          setViewingReferenceEntryId(null);
+          setReferenceBreadcrumbSource(null);
+        }}
+        onNavigateToEntry={handleOpenReferenceEntryFromDetail}
+        breadcrumbsPrefix={referenceBreadcrumbSource
+          ? [{
+              label: referenceBreadcrumbLabel,
+              onClick: () => handleOpenCatalogEntryFromDetail(
+                referenceBreadcrumbSource.catalogId,
+                referenceBreadcrumbSource.entryId
+              ),
+            }]
+          : undefined}
+      />
     </Dialog>
   );
 };

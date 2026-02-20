@@ -11,6 +11,7 @@ import {
   Paper,
   IconButton,
   Stack,
+  Breadcrumbs,
   DialogContentText,
   Tabs,
   Tab,
@@ -33,6 +34,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   OpenInNew as OpenInNewIcon,
+  NavigateNext as NavigateNextIcon,
 } from '@mui/icons-material';
 import { useCatalogs } from '../context/CatalogsContext';
 import { useReferenceEntries } from '../context/ReferenceEntriesContext';
@@ -47,7 +49,12 @@ interface CatalogEntryDetailDialogProps {
   entryId: string;
   onEdit: () => void;
   onOpenCatalogEntry?: (catalogId: string, entryId: string) => void;
+  onOpenReferenceEntry?: (entryId: string) => void;
   onOpenDeal?: (dealId: string) => void;
+  breadcrumbsPrefix?: Array<{
+    label: string;
+    onClick?: () => void;
+  }>;
 }
 
 export const CatalogEntryDetailDialog = ({
@@ -57,7 +64,9 @@ export const CatalogEntryDetailDialog = ({
   entryId,
   onEdit,
   onOpenCatalogEntry,
+  onOpenReferenceEntry,
   onOpenDeal,
+  breadcrumbsPrefix = [],
 }: CatalogEntryDetailDialogProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -164,6 +173,23 @@ export const CatalogEntryDetailDialog = ({
 
   // Рендер значения поля
   const renderFieldValue = (fieldDef: CatalogFieldDef, entry: CatalogEntry) => {
+    const openReferenceEntry = (targetEntryId: string) => {
+      if (onOpenReferenceEntry) {
+        onOpenReferenceEntry(targetEntryId);
+        return;
+      }
+
+      if (fieldDef.targetCatalogId) {
+        onOpenCatalogEntry?.(fieldDef.targetCatalogId, targetEntryId);
+      }
+    };
+
+    const openCatalogEntry = (targetEntryId: string) => {
+      const targetCatalogId = fieldDef.targetCatalogId || getEntry(targetEntryId)?.catalogId;
+      if (!targetCatalogId) return;
+      onOpenCatalogEntry?.(targetCatalogId, targetEntryId);
+    };
+
     const fieldValue = entry.fields.find((f) => f.fieldId === fieldDef.id);
     if (!fieldValue || fieldValue.value === null || fieldValue.value === '') {
       return (
@@ -262,10 +288,7 @@ export const CatalogEntryDetailDialog = ({
                     key={i}
                     entry={refEntry}
                     entryId={id as string}
-                    onClick={() => {
-                      if (!fieldDef.targetCatalogId) return;
-                      onOpenCatalogEntry?.(fieldDef.targetCatalogId, id as string);
-                    }}
+                    onClick={() => openReferenceEntry(id as string)}
                   />
                 );
               })}
@@ -278,10 +301,7 @@ export const CatalogEntryDetailDialog = ({
             <ReferenceCard
               entry={refEntry}
               entryId={value}
-              onClick={() => {
-                if (!fieldDef.targetCatalogId) return;
-                onOpenCatalogEntry?.(fieldDef.targetCatalogId, value);
-              }}
+              onClick={() => openReferenceEntry(value)}
             />
           );
         }
@@ -304,10 +324,7 @@ export const CatalogEntryDetailDialog = ({
                     entryId={id as string}
                     fieldDef={fieldDef}
                     getCatalog={getCatalogById}
-                    onClick={() => {
-                      if (!fieldDef.targetCatalogId) return;
-                      onOpenCatalogEntry?.(fieldDef.targetCatalogId, id as string);
-                    }}
+                    onClick={() => openCatalogEntry(id as string)}
                   />
                 );
               })}
@@ -322,10 +339,7 @@ export const CatalogEntryDetailDialog = ({
               entryId={value}
               fieldDef={fieldDef}
               getCatalog={getCatalogById}
-              onClick={() => {
-                if (!fieldDef.targetCatalogId) return;
-                onOpenCatalogEntry?.(fieldDef.targetCatalogId, value);
-              }}
+              onClick={() => openCatalogEntry(value)}
             />
           );
         }
@@ -518,9 +532,50 @@ export const CatalogEntryDetailDialog = ({
         }}
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-          <Typography id="catalog-entry-dialog-title" variant="h6" sx={{ fontWeight: 600 }}>
-            {entry.displayValue}
-          </Typography>
+          <Box sx={{ minWidth: 0, flex: 1, pr: 1 }}>
+            {breadcrumbsPrefix.length > 0 && (
+              <Breadcrumbs
+                separator={<NavigateNextIcon sx={{ fontSize: 16 }} />}
+                sx={{ mb: 0.5 }}
+                aria-label="Хлебные крошки"
+              >
+                {breadcrumbsPrefix.map((item, index) => (
+                  item.onClick ? (
+                    <Button
+                      key={`${item.label}-${index}`}
+                      size="small"
+                      variant="text"
+                      onClick={item.onClick}
+                      sx={{
+                        p: 0,
+                        minWidth: 0,
+                        textTransform: 'none',
+                        color: 'text.secondary',
+                        fontSize: '0.75rem',
+                        '&:hover': { textDecoration: 'underline', backgroundColor: 'transparent' },
+                      }}
+                    >
+                      {item.label}
+                    </Button>
+                  ) : (
+                    <Typography
+                      key={`${item.label}-${index}`}
+                      variant="caption"
+                      sx={{ color: 'text.secondary' }}
+                    >
+                      {item.label}
+                    </Typography>
+                  )
+                ))}
+                <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 600 }} noWrap>
+                  {entry.displayValue}
+                </Typography>
+              </Breadcrumbs>
+            )}
+            <Typography id="catalog-entry-dialog-title" variant="h6" sx={{ fontWeight: 600 }} noWrap>
+              {entry.displayValue}
+            </Typography>
+          </Box>
           <IconButton onClick={onClose} size="small" aria-label="Закрыть окно">
             <CloseIcon />
           </IconButton>
@@ -669,11 +724,22 @@ const CatalogRefCard = ({ entry, entryId, fieldDef, getCatalog, onClick }: Catal
   }
 
   // Получаем определение полей из целевого каталога для отображения
+  // Пропускаем reference/catalog_ref поля — их значения это ID, которые без контекста выглядят как мусор
   const displayFields = targetCatalog
-    ? entry.fields.slice(0, 3).map((f) => {
-        const def = targetCatalog.fields.find((fd) => fd.id === f.fieldId);
-        return { fieldName: def?.name || f.fieldId, value: f.value };
-      })
+    ? entry.fields
+        .map((f) => {
+          const def = targetCatalog.fields.find((fd) => fd.id === f.fieldId);
+          return { fieldName: def?.name || f.fieldId, value: f.value, type: def?.type };
+        })
+        .filter(
+          (f) =>
+            f.type &&
+            !['reference', 'catalog_ref'].includes(f.type) &&
+            f.value !== null &&
+            f.value !== '' &&
+            !(Array.isArray(f.value) && f.value.length === 0)
+        )
+        .slice(0, 3)
     : [];
 
   return (
@@ -697,12 +763,13 @@ const CatalogRefCard = ({ entry, entryId, fieldDef, getCatalog, onClick }: Catal
         <Typography variant="body2" sx={{ fontWeight: 500 }}>
           {entry.displayValue}
         </Typography>
+        {onClick && <OpenInNewIcon sx={{ fontSize: 14, color: 'text.secondary', ml: 'auto' }} />}
       </Box>
       {displayFields.length > 0 && (
         <Typography variant="caption" sx={{ color: 'text.secondary', pl: 3 }}>
           {displayFields
             .map((f) => {
-              const val = Array.isArray(f.value) ? f.value.join(', ') : f.value;
+              const val = Array.isArray(f.value) ? f.value.join(', ') : String(f.value);
               return `${f.fieldName}: ${val}`;
             })
             .join(' | ')}
