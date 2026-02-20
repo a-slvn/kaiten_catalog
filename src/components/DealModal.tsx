@@ -223,9 +223,15 @@ export const DealModal = ({
   };
 
   const handleOpenCatalogEntryFromDetail = (catalogId: string, entryId: string) => {
+    // Если каталог не найден по переданному ID (данные могут быть устаревшими),
+    // пробуем получить catalogId напрямую из записи
+    const resolvedCatalogId = getCatalog(catalogId)
+      ? catalogId
+      : (getCatalogEntry(entryId)?.catalogId || catalogId);
+
     if (
       viewingCatalogEntry &&
-      (viewingCatalogEntry.catalogId !== catalogId || viewingCatalogEntry.entryId !== entryId)
+      (viewingCatalogEntry.catalogId !== resolvedCatalogId || viewingCatalogEntry.entryId !== entryId)
     ) {
       setCatalogBreadcrumbSource({
         catalogId: viewingCatalogEntry.catalogId,
@@ -237,7 +243,7 @@ export const DealModal = ({
 
     setReferenceBreadcrumbSource(null);
     setViewingReferenceEntryId(null);
-    setViewingCatalogEntry({ catalogId, entryId });
+    setViewingCatalogEntry({ catalogId: resolvedCatalogId, entryId });
   };
 
   const handleOpenReferenceEntryFromDetail = (entryId: string) => {
@@ -1028,6 +1034,10 @@ export const DealModal = ({
                                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.35 }}>
                                           {entry.fields.map((fieldValue) => {
                                             const fieldDef = catalog?.fields.find((f) => f.id === fieldValue.fieldId);
+                                            // Пропускаем reference/catalog_ref — их значения это ID
+                                            if (fieldDef?.type === 'reference' || fieldDef?.type === 'catalog_ref') return null;
+                                            const formatted = formatCatalogFieldValue(fieldValue.value);
+                                            if (formatted === '-') return null;
                                             return (
                                               <Box
                                                 key={`${entry.id}-${fieldValue.fieldId}`}
@@ -1037,7 +1047,7 @@ export const DealModal = ({
                                                   {fieldDef?.name || fieldValue.fieldId}:
                                                 </Typography>
                                                 <Typography variant="caption" sx={{ color: '#333', fontSize: 14 }}>
-                                                  {formatCatalogFieldValue(fieldValue.value)}
+                                                  {formatted}
                                                 </Typography>
                                               </Box>
                                             );
