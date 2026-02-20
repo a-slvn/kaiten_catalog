@@ -558,6 +558,7 @@ export const CatalogDetailPage = ({
         open={Boolean(selectedDealId)}
         onClose={handleCloseDeal}
         deal={selectedDeal}
+        onOpenDeal={handleOpenDeal}
       />
 
       <Dialog

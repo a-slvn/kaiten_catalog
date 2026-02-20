@@ -378,21 +378,6 @@ export const AddCustomFieldModal = ({
         <Divider sx={{ mb: 2 }} />
 
         {/* Checkboxes */}
-        <Box sx={{ mb: 2 }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={showOnCardFacade}
-                onChange={(e) => setShowOnCardFacade(e.target.checked)}
-                sx={{
-                  color: '#7B1FA2',
-                  '&.Mui-checked': { color: '#7B1FA2' },
-                }}
-              />
-            }
-            label="Показывать на фасаде карточек"
-          />
-        </Box>
 
         {fieldType !== 'catalog' && (
           <Box sx={{ mb: 2 }}>

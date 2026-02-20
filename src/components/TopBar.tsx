@@ -275,6 +275,7 @@ export const TopBar = ({ onClearAllData, activeItem, onNavigate }: TopBarProps) 
         open={Boolean(selectedDealId)}
         onClose={handleCloseDeal}
         deal={selectedDeal}
+        onOpenDeal={handleOpenDeal}
       />
 
       {/* Reference Entry Detail Dialog */}

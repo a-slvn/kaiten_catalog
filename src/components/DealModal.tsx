@@ -33,13 +33,14 @@ import {
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import { Catalog, CatalogEntry, Deal } from '../types';
-import { useState, useEffect } from 'react';
+import { KeyboardEvent, useState, useEffect } from 'react';
 import { AddFieldMenu } from './AddFieldMenu';
 import { ReferenceFieldDisplay } from './ReferenceFieldDisplay';
 import { CatalogFieldSelect } from './CatalogFieldSelect';
 import { CustomFieldDefinition, ReferenceFieldDef, useCustomFields } from '../context/CustomFieldsContext';
 import { CreateReferenceEntryDialog } from './CreateReferenceEntryDialog';
 import { CreateCatalogEntryDialog } from './CreateCatalogEntryDialog';
+import { CatalogEntryDetailDialog } from './CatalogEntryDetailDialog';
 import { useReferenceEntries } from '../context/ReferenceEntriesContext';
 import { useCatalogs } from '../context/CatalogsContext';
 
@@ -47,6 +48,7 @@ interface DealModalProps {
   deal: Deal | null;
   open: boolean;
   onClose: () => void;
+  onOpenDeal?: (dealId: string) => void;
 }
 
 const DEAL_FIELDS_STORAGE_KEY = 'crm_deal_fields';
@@ -56,6 +58,7 @@ export const DealModal = ({
   deal,
   open,
   onClose,
+  onOpenDeal,
 }: DealModalProps) => {
   const { getEntry } = useReferenceEntries();
   const { getEntry: getCatalogEntry, getCatalog } = useCatalogs();
@@ -99,6 +102,7 @@ export const DealModal = ({
   const [creatingNewForField, setCreatingNewForField] = useState<{ fieldId: string; referenceId: string } | null>(null);
   const [creatingNewForCatalog, setCreatingNewForCatalog] = useState<{ fieldId: string; catalogId: string } | null>(null);
   const [editingCatalogEntry, setEditingCatalogEntry] = useState<{ entryId: string; catalogId: string } | null>(null);
+  const [viewingCatalogEntry, setViewingCatalogEntry] = useState<{ entryId: string; catalogId: string } | null>(null);
   const [editingEntry, setEditingEntry] = useState<{ entryId: string; referenceId: string } | null>(null);
   const [expandedCatalogDetails, setExpandedCatalogDetails] = useState<Record<string, boolean>>({});
   const [expandedCatalogGroups, setExpandedCatalogGroups] = useState<Record<string, boolean>>({});
@@ -275,6 +279,21 @@ export const DealModal = ({
       ...prev,
       [fieldId]: !(prev[fieldId] ?? false),
     }));
+  };
+
+  const handleCatalogCardKeyDown = (
+    event: KeyboardEvent<HTMLDivElement>,
+    entryId: string,
+    catalogId: string
+  ) => {
+    if (event.currentTarget !== event.target) {
+      return;
+    }
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setViewingCatalogEntry({ entryId, catalogId });
+    }
   };
 
   const resolveLinkedDisplayValue = (value: string): string => {
@@ -644,19 +663,37 @@ export const DealModal = ({
                       targetReferenceName: field.name,
                     };
                     return (
-                      <Box key={field.id} sx={{ mb: 2, '&:hover .field-delete-btn': { opacity: 1 } }}>
+                      <Box
+                        key={field.id}
+                        sx={{
+                          mb: 2,
+                          '&:hover .field-delete-btn, &:focus-within .field-delete-btn': {
+                            opacity: 1,
+                            pointerEvents: 'auto',
+                          },
+                        }}
+                      >
                         <Box
                           sx={{
                             display: 'grid',
-                            gridTemplateColumns: '140px minmax(0, 1fr) auto',
+                            gridTemplateColumns: { xs: 'minmax(0, 1fr) 32px', sm: '140px minmax(0, 1fr) 32px' },
                             alignItems: 'flex-start',
                             columnGap: 1.25,
+                            rowGap: { xs: 0.75, sm: 0 },
                           }}
                         >
-                          <Typography variant="body2" sx={{ color: '#999', pt: 1 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: '#666',
+                              fontWeight: 500,
+                              pt: { xs: 0, sm: 1 },
+                              gridColumn: { xs: '1 / -1', sm: '1' },
+                            }}
+                          >
                             {field.name}
                           </Typography>
-                          <Box sx={{ minWidth: 0 }}>
+                          <Box sx={{ minWidth: 0, gridColumn: { xs: '1', sm: '2' } }}>
                             <ReferenceFieldDisplay
                               fieldDef={referenceFieldDef}
                               value={(() => {
@@ -675,12 +712,18 @@ export const DealModal = ({
                               className="field-delete-btn"
                               size="small"
                               onClick={() => handleDeleteField(field.id)}
+                              aria-label={`Удалить поле ${field.name}`}
                               sx={{
+                                gridColumn: { xs: '2', sm: '3' },
+                                justifySelf: 'end',
+                                width: 32,
+                                height: 32,
                                 p: 0.5,
                                 color: '#999',
-                                opacity: 0,
-                                transition: 'opacity 0.2s',
-                                mt: 0.5,
+                                opacity: { xs: 1, sm: 0 },
+                                pointerEvents: { xs: 'auto', sm: 'none' },
+                                transition: 'opacity 0.2s ease, color 0.2s ease',
+                                mt: { xs: 0, sm: 0.5 },
                                 '&:hover': {
                                   color: '#f44336',
                                   backgroundColor: 'rgba(244, 67, 54, 0.08)',
@@ -720,11 +763,20 @@ export const DealModal = ({
                     const hiddenEntriesCount = selectedCatalogEntries.length - visibleCatalogEntries.length;
 
                     return (
-                      <Box key={field.id} sx={{ mb: 2, '&:hover .field-delete-btn': { opacity: 1 } }}>
+                      <Box
+                        key={field.id}
+                        sx={{
+                          mb: 2,
+                          '&:hover .field-delete-btn, &:focus-within .field-delete-btn': {
+                            opacity: 1,
+                            pointerEvents: 'auto',
+                          },
+                        }}
+                      >
                         <Box
                           sx={{
                             display: 'grid',
-                            gridTemplateColumns: '140px minmax(0, 1fr) auto',
+                            gridTemplateColumns: { xs: 'minmax(0, 1fr) 32px', sm: '140px minmax(0, 1fr) 32px' },
                             alignItems: 'flex-start',
                             columnGap: 1.25,
                             rowGap: 0.75,
@@ -732,11 +784,17 @@ export const DealModal = ({
                         >
                           <Typography
                             variant="body2"
-                            sx={{ color: '#999', pt: 1, flexShrink: 0 }}
+                            sx={{
+                              color: '#666',
+                              fontWeight: 500,
+                              pt: { xs: 0, sm: 1 },
+                              flexShrink: 0,
+                              gridColumn: { xs: '1 / -1', sm: '1' },
+                            }}
                           >
                             {field.name}
                           </Typography>
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Box sx={{ flex: 1, minWidth: 0, gridColumn: { xs: '1', sm: '2' } }}>
                             <CatalogFieldSelect
                               catalogId={field.catalogId}
                               value={normalizedValue}
@@ -755,12 +813,18 @@ export const DealModal = ({
                               className="field-delete-btn"
                               size="small"
                               onClick={() => handleDeleteField(field.id)}
+                              aria-label={`Удалить поле ${field.name}`}
                               sx={{
+                                gridColumn: { xs: '2', sm: '3' },
+                                justifySelf: 'end',
+                                width: 32,
+                                height: 32,
                                 p: 0.5,
                                 color: '#999',
-                                opacity: 0,
-                                transition: 'opacity 0.2s',
-                                mt: 0.5,
+                                opacity: { xs: 1, sm: 0 },
+                                pointerEvents: { xs: 'auto', sm: 'none' },
+                                transition: 'opacity 0.2s ease, color 0.2s ease',
+                                mt: { xs: 0, sm: 0.5 },
                                 '&:hover': {
                                   color: '#f44336',
                                   backgroundColor: 'rgba(244, 67, 54, 0.08)',
@@ -772,65 +836,60 @@ export const DealModal = ({
                           </Tooltip>
 
                           {selectedCatalogEntries.length > 0 && (
-                            <Box sx={{ gridColumn: '2 / 3' }}>
-                              <Box
-                                sx={{
-                                  mt: 0.25,
-                                  mb: 0.25,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  gap: 1,
-                                }}
-                              >
-                                <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
-                                  Выбранные значения ({selectedCatalogEntries.length})
-                                </Typography>
-                                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                                  {isMulti && selectedCatalogEntries.length > 0 && (
-                                    <Button
-                                      size="small"
-                                      onClick={() => handleFieldValueChange(field.id, [])}
-                                      sx={{ textTransform: 'none', minWidth: 'max-content', px: 0.75 }}
-                                    >
-                                      Очистить все
-                                    </Button>
-                                  )}
-                                  {hiddenEntriesCount > 0 && (
-                                    <Button
-                                      size="small"
-                                      onClick={() => toggleCatalogGroup(field.id)}
-                                      sx={{ textTransform: 'none', minWidth: 'max-content', px: 0.75 }}
-                                    >
-                                      Показать ещё {hiddenEntriesCount}
-                                    </Button>
-                                  )}
-                                  {groupExpanded && selectedCatalogEntries.length > 3 && (
-                                    <Button
-                                      size="small"
-                                      onClick={() => toggleCatalogGroup(field.id)}
-                                      sx={{ textTransform: 'none', minWidth: 'max-content', px: 0.75 }}
-                                    >
-                                      Свернуть список
-                                    </Button>
-                                  )}
-                                </Box>
-                              </Box>
+                            <Box
+                              sx={{
+                                gridColumn: { xs: '1 / -1', sm: '2 / 4' },
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 0.75,
+                                mt: 0.25,
+                              }}
+                            >
+                              {visibleCatalogEntries.map((entry) => {
+                                const detailsKey = getCatalogDetailsKey(field.id, entry.id);
+                                const detailsExpanded = expandedCatalogDetails[detailsKey] ?? false;
+                                const summary = getCatalogEntrySummary(entry, catalog);
 
-                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                                {visibleCatalogEntries.map((entry) => {
-                                  const detailsKey = getCatalogDetailsKey(field.id, entry.id);
-                                  const detailsExpanded = expandedCatalogDetails[detailsKey] ?? false;
-                                  const summary = getCatalogEntrySummary(entry, catalog);
-
-                                  return (
+                                return (
+                                  <Box
+                                    key={entry.id}
+                                    sx={{
+                                      display: 'grid',
+                                      gridTemplateColumns: 'minmax(0, 1fr) 32px',
+                                      alignItems: 'flex-start',
+                                      columnGap: 1.25,
+                                      '&:hover .delete-catalog-entry-btn, &:focus-within .delete-catalog-entry-btn': {
+                                        opacity: 1,
+                                        pointerEvents: 'auto',
+                                      },
+                                      '&:hover .edit-catalog-entry-btn, &:focus-within .edit-catalog-entry-btn': {
+                                        opacity: 1,
+                                        pointerEvents: 'auto',
+                                      },
+                                    }}
+                                  >
                                     <Box
-                                      key={entry.id}
+                                      onClick={() => setViewingCatalogEntry({ entryId: entry.id, catalogId: field.catalogId! })}
+                                      onKeyDown={(event) => handleCatalogCardKeyDown(event, entry.id, field.catalogId!)}
+                                      role="button"
+                                      tabIndex={0}
+                                      aria-label={`Открыть карточку ${entry.displayValue}`}
                                       sx={{
-                                        border: '1px solid #e0e0e0',
-                                        borderRadius: 1.5,
-                                        backgroundColor: '#fafafa',
-                                        p: 1,
+                                        border: '1px solid #dde1e7',
+                                        borderRadius: 2,
+                                        backgroundColor: '#fff',
+                                        p: 1.25,
+                                        cursor: 'pointer',
+                                        transition: 'border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease',
+                                        '&:hover': {
+                                          borderColor: '#7B1FA2',
+                                          backgroundColor: '#fdf9ff',
+                                        },
+                                        '&:focus-visible': {
+                                          outline: 'none',
+                                          borderColor: '#7B1FA2',
+                                          boxShadow: '0 0 0 3px rgba(123, 31, 162, 0.16)',
+                                        },
                                       }}
                                     >
                                       <Box
@@ -867,11 +926,16 @@ export const DealModal = ({
                                           {catalog?.isEditable && (
                                             <Tooltip title="Редактировать запись">
                                               <IconButton
+                                                className="edit-catalog-entry-btn"
                                                 size="small"
-                                                onClick={() => handleEditCatalogEntry(entry.id, field.catalogId!)}
+                                                onClick={(e) => { e.stopPropagation(); handleEditCatalogEntry(entry.id, field.catalogId!); }}
+                                                aria-label={`Редактировать запись ${entry.displayValue}`}
                                                 sx={{
                                                   p: 0.35,
                                                   color: '#999',
+                                                  opacity: { xs: 1, sm: 0 },
+                                                  pointerEvents: { xs: 'auto', sm: 'none' },
+                                                  transition: 'opacity 0.2s ease, color 0.2s ease',
                                                   '&:hover': {
                                                     color: '#1976D2',
                                                     backgroundColor: 'rgba(25, 118, 210, 0.08)',
@@ -885,7 +949,8 @@ export const DealModal = ({
                                           <Tooltip title={detailsExpanded ? 'Скрыть поля' : 'Показать поля'}>
                                             <IconButton
                                               size="small"
-                                              onClick={() => toggleCatalogDetails(field.id, entry.id)}
+                                              onClick={(e) => { e.stopPropagation(); toggleCatalogDetails(field.id, entry.id); }}
+                                              aria-label={detailsExpanded ? 'Скрыть поля записи' : 'Показать поля записи'}
                                               sx={{ p: 0.35, color: '#7B1FA2' }}
                                             >
                                               {detailsExpanded
@@ -905,10 +970,10 @@ export const DealModal = ({
                                                 key={`${entry.id}-${fieldValue.fieldId}`}
                                                 sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}
                                               >
-                                                <Typography variant="caption" sx={{ color: '#999' }}>
+                                                <Typography variant="caption" sx={{ color: '#999', fontSize: 14 }}>
                                                   {fieldDef?.name || fieldValue.fieldId}:
                                                 </Typography>
-                                                <Typography variant="caption" sx={{ color: '#333' }}>
+                                                <Typography variant="caption" sx={{ color: '#333', fontSize: 14 }}>
                                                   {formatCatalogFieldValue(fieldValue.value)}
                                                 </Typography>
                                               </Box>
@@ -917,9 +982,49 @@ export const DealModal = ({
                                         </Box>
                                       </Collapse>
                                     </Box>
-                                  );
-                                })}
-                              </Box>
+
+                                    <Tooltip title="Убрать">
+                                      <IconButton
+                                        className="delete-catalog-entry-btn"
+                                        size="small"
+                                        onClick={() => {
+                                          if (isMulti) {
+                                            const cur = fieldValues[field.id];
+                                            const ids = Array.isArray(cur) ? cur as string[] : cur ? [String(cur)] : [];
+                                            handleFieldValueChange(field.id, ids.filter((id) => id !== entry.id));
+                                          } else {
+                                            handleFieldValueChange(field.id, '');
+                                          }
+                                        }}
+                                        aria-label={`Убрать запись ${entry.displayValue}`}
+                                        sx={{
+                                          width: 32,
+                                          height: 32,
+                                          p: 0.5,
+                                          color: '#999',
+                                          opacity: { xs: 1, sm: 0 },
+                                          pointerEvents: { xs: 'auto', sm: 'none' },
+                                          transition: 'opacity 0.2s ease, color 0.2s ease',
+                                          mt: 0.35,
+                                          flexShrink: 0,
+                                          '&:hover': { color: '#d32f2f', backgroundColor: 'rgba(211, 47, 47, 0.08)' },
+                                        }}
+                                      >
+                                        <DeleteIcon sx={{ fontSize: '1.1rem' }} />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </Box>
+                                );
+                              })}
+                              {(hiddenEntriesCount > 0 || (groupExpanded && selectedCatalogEntries.length > 3)) && (
+                                <Button
+                                  size="small"
+                                  onClick={() => toggleCatalogGroup(field.id)}
+                                  sx={{ textTransform: 'none', px: 0.75, alignSelf: 'flex-start' }}
+                                >
+                                  {hiddenEntriesCount > 0 ? `Показать ещё ${hiddenEntriesCount}` : 'Свернуть список'}
+                                </Button>
+                              )}
                             </Box>
                           )}
                         </Box>
@@ -929,7 +1034,16 @@ export const DealModal = ({
 
                   // Для остальных типов - простое текстовое поле с кнопкой удаления
                   return (
-                    <Box key={field.id} sx={{ mb: 2, '&:hover .field-delete-btn': { opacity: 1 } }}>
+                    <Box
+                      key={field.id}
+                      sx={{
+                        mb: 2,
+                        '&:hover .field-delete-btn, &:focus-within .field-delete-btn': {
+                          opacity: 1,
+                          pointerEvents: 'auto',
+                        },
+                      }}
+                    >
                       <Box
                         sx={{
                           display: 'flex',
@@ -946,11 +1060,13 @@ export const DealModal = ({
                             className="field-delete-btn"
                             size="small"
                             onClick={() => handleDeleteField(field.id)}
+                            aria-label={`Удалить поле ${field.name}`}
                             sx={{
                               p: 0.5,
                               color: '#999',
-                              opacity: 0,
-                              transition: 'opacity 0.2s',
+                              opacity: { xs: 1, sm: 0 },
+                              pointerEvents: { xs: 'auto', sm: 'none' },
+                              transition: 'opacity 0.2s ease, color 0.2s ease',
                               '&:hover': {
                                 color: '#f44336',
                                 backgroundColor: 'rgba(244, 67, 54, 0.08)',
@@ -1105,6 +1221,24 @@ export const DealModal = ({
         entryToEdit={editingCatalogEntry ? getCatalogEntry(editingCatalogEntry.entryId) : undefined}
         onUpdate={handleCatalogEntryUpdated}
       />
+
+      {/* View Catalog Entry Detail Dialog */}
+      {viewingCatalogEntry && (() => {
+        const catalog = getCatalog(viewingCatalogEntry.catalogId);
+        return catalog ? (
+          <CatalogEntryDetailDialog
+            open={Boolean(viewingCatalogEntry)}
+            onClose={() => setViewingCatalogEntry(null)}
+            catalog={catalog}
+            entryId={viewingCatalogEntry.entryId}
+            onEdit={() => {
+              setEditingCatalogEntry({ entryId: viewingCatalogEntry.entryId, catalogId: viewingCatalogEntry.catalogId });
+              setViewingCatalogEntry(null);
+            }}
+            onOpenDeal={onOpenDeal}
+          />
+        ) : null;
+      })()}
     </Dialog>
   );
 };

@@ -131,6 +131,7 @@ export const CatalogFieldSelect = ({
             {...params}
             size="small"
             placeholder={selectedIds.length === 0 ? 'Выбрать из каталога' : ''}
+            aria-label={multiple ? 'Выберите записи из каталога' : 'Выберите запись из каталога'}
             variant="outlined"
             InputProps={{
               ...params.InputProps,
@@ -144,7 +145,8 @@ export const CatalogFieldSelect = ({
                           size="small"
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={(event) => handleEdit(selectedIds[0], event)}
-                          sx={{ p: 0.5 }}
+                          aria-label="Редактировать выбранную запись"
+                          sx={{ p: 0.5, color: '#64748b' }}
                         >
                           <EditIcon sx={{ fontSize: '1rem' }} />
                         </IconButton>
@@ -158,11 +160,31 @@ export const CatalogFieldSelect = ({
               '& .MuiOutlinedInput-root': {
                 borderRadius: 2,
                 backgroundColor: '#fff',
-                minHeight: 40,
+                minHeight: 42,
                 alignItems: 'center',
+                transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#d5dbe3',
+                },
+                '&:hover': {
+                  backgroundColor: '#fcfdff',
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#b7c0cc',
+                },
+                '&.Mui-focused': {
+                  boxShadow: '0 0 0 3px rgba(123, 31, 162, 0.12)',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#7B1FA2',
+                },
               },
               '& .MuiAutocomplete-input': {
                 py: '7px !important',
+              },
+              '& .MuiInputBase-input::placeholder': {
+                color: '#94a3b8',
+                opacity: 1,
               },
               '& .MuiAutocomplete-inputRoot': {
                 flexWrap: 'nowrap',
@@ -225,6 +247,7 @@ export const CatalogFieldSelect = ({
                         size="small"
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={(event) => handleEdit(option.id, event)}
+                        aria-label={`Редактировать запись ${option.displayValue}`}
                         sx={{ p: 0.5 }}
                       >
                         <EditIcon sx={{ fontSize: '0.95rem' }} />
@@ -237,6 +260,7 @@ export const CatalogFieldSelect = ({
                         size="small"
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={(event) => handleOpenDetail(option.id, event)}
+                        aria-label={`Открыть карточку ${option.displayValue}`}
                         sx={{ p: 0.5 }}
                       >
                         <OpenInNewIcon sx={{ fontSize: '0.95rem' }} />
@@ -259,9 +283,10 @@ export const CatalogFieldSelect = ({
               label={`${tagValue.length} выбрано`}
               size="small"
               sx={{
-                backgroundColor: '#e8eef5',
+                backgroundColor: '#edf2f7',
                 color: '#334155',
-                '&:hover': { backgroundColor: '#dde6f0' },
+                border: '1px solid #d4dee8',
+                '&:hover': { backgroundColor: '#e2ebf5' },
               }}
             />,
           ];

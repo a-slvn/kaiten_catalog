@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Deal } from '../types';
 import { useState } from 'react';
 import { DealModal } from './DealModal';
+import { useDealsContext } from '../context/DealsContext';
 
 interface DealCardProps {
   deal: Deal;
@@ -12,7 +13,10 @@ interface DealCardProps {
 export const DealCard = ({
   deal,
 }: DealCardProps) => {
-  const [modalOpen, setModalOpen] = useState(false);
+  const [openDealId, setOpenDealId] = useState<string | null>(null);
+  const { deals } = useDealsContext();
+  const openDeal = openDealId ? (deals.find((d) => d.id === openDealId) ?? deal) : deal;
+  const modalOpen = openDealId !== null;
   const {
     attributes,
     listeners,
@@ -48,7 +52,7 @@ export const DealCard = ({
   const handleCardClick = () => {
     // Only open modal if not dragging
     if (!isDragging) {
-      setModalOpen(true);
+      setOpenDealId(deal.id);
     }
   };
 
@@ -124,9 +128,10 @@ export const DealCard = ({
     </Card>
 
     <DealModal
-      deal={deal}
+      deal={openDeal}
       open={modalOpen}
-      onClose={() => setModalOpen(false)}
+      onClose={() => setOpenDealId(null)}
+      onOpenDeal={(dealId) => setOpenDealId(dealId)}
     />
     </>
   );

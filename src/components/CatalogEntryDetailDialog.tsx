@@ -14,6 +14,8 @@ import {
   DialogContentText,
   Tabs,
   Tab,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -36,6 +38,7 @@ import { useCatalogs } from '../context/CatalogsContext';
 import { useReferenceEntries } from '../context/ReferenceEntriesContext';
 import { useDealsContext } from '../context/DealsContext';
 import { Catalog, CatalogFieldDef, CatalogEntry, Deal } from '../types';
+import { getDealUrl } from '../utils/dealUrl';
 
 interface CatalogEntryDetailDialogProps {
   open: boolean;
@@ -60,6 +63,7 @@ export const CatalogEntryDetailDialog = ({
   const [activeTab, setActiveTab] = useState(0);
   const [showAllFields, setShowAllFields] = useState(false);
   const [visibleDealsCount, setVisibleDealsCount] = useState(15);
+  const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number; dealId: string } | null>(null);
   const { getEntry, deleteEntry, getCatalog: getCatalogById } = useCatalogs();
   const { getEntry: getReferenceEntry } = useReferenceEntries();
   const { getDealsForEntryWithLinked } = useDealsContext();
@@ -372,7 +376,21 @@ export const CatalogEntryDetailDialog = ({
             }
           : undefined,
       }}
-      onClick={() => onOpenDeal?.(deal.id)}
+      onClick={(e) => {
+        if (e.metaKey || e.ctrlKey) {
+          window.open(getDealUrl(deal.id), '_blank');
+          return;
+        }
+        onClose();
+        onOpenDeal?.(deal.id);
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setContextMenu({ mouseX: e.clientX, mouseY: e.clientY, dealId: deal.id });
+      }}
+      role={onOpenDeal ? 'button' : undefined}
+      tabIndex={onOpenDeal ? 0 : undefined}
+      onKeyDown={(e) => { if (onOpenDeal && (e.key === 'Enter' || e.key === ' ')) onOpenDeal(deal.id); }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Box
@@ -441,10 +459,10 @@ export const CatalogEntryDetailDialog = ({
       <Paper elevation={0} sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1.5 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            Последние связанные сделки
+            Связанные карточки
           </Typography>
           <Button size="small" onClick={() => setActiveTab(1)} sx={{ textTransform: 'none' }}>
-            Все сделки
+            Все карточки
           </Button>
         </Box>
         {overviewDeals.length > 0 ? (
@@ -453,7 +471,7 @@ export const CatalogEntryDetailDialog = ({
           </Stack>
         ) : (
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Нет связанных сделок
+            Нет связанных карточек
           </Typography>
         )}
       </Paper>
@@ -468,7 +486,7 @@ export const CatalogEntryDetailDialog = ({
         </Stack>
       ) : (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          Нет связанных сделок
+          Нет связанных карточек
         </Typography>
       )}
 
@@ -516,7 +534,7 @@ export const CatalogEntryDetailDialog = ({
                 variant="fullWidth"
               >
                 <Tab label="Обзор" />
-                <Tab label={`Сделки (${relatedDeals.length})`} />
+                <Tab label={`Карточки (${relatedDeals.length})`} />
               </Tabs>
             </Box>
 
@@ -584,6 +602,29 @@ export const CatalogEntryDetailDialog = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Menu
+        open={contextMenu !== null}
+        onClose={() => setContextMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenu !== null
+            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+            : undefined
+        }
+      >
+        <MenuItem
+          onClick={() => {
+            if (contextMenu) {
+              window.open(getDealUrl(contextMenu.dealId), '_blank');
+            }
+            setContextMenu(null);
+          }}
+        >
+          <OpenInNewIcon fontSize="small" sx={{ mr: 1 }} />
+          Открыть в новой вкладке
+        </MenuItem>
+      </Menu>
     </>
   );
 };
