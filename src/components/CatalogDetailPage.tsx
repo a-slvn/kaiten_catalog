@@ -40,6 +40,7 @@ import { useDealsContext } from '../context/DealsContext';
 import { CreateCatalogEntryDialog } from './CreateCatalogEntryDialog';
 import { CatalogEntryDetailDialog } from './CatalogEntryDetailDialog';
 import { DealModal } from './DealModal';
+import ReferenceEntryDetailDialog from './ReferenceEntryDetailDialog';
 import { CatalogEntry, CatalogFieldDef } from '../types';
 
 interface CatalogDetailPageProps {
@@ -74,6 +75,9 @@ export const CatalogDetailPage = ({
   const [settingsAnchor, setSettingsAnchor] = useState<null | HTMLElement>(null);
   const [entryIdToDelete, setEntryIdToDelete] = useState<string | null>(null);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+  const [selectedReferenceEntryId, setSelectedReferenceEntryId] = useState<string | null>(null);
+  const [catalogBreadcrumbSourceEntryId, setCatalogBreadcrumbSourceEntryId] = useState<string | null>(null);
+  const [referenceBreadcrumbSourceEntryId, setReferenceBreadcrumbSourceEntryId] = useState<string | null>(null);
 
   const catalog = getCatalog(catalogId);
   const entries = getEntriesByCatalog(catalogId);
@@ -178,6 +182,8 @@ export const CatalogDetailPage = ({
   };
 
   const handleOpenDetail = (entryId: string) => {
+    setCatalogBreadcrumbSourceEntryId(null);
+    setReferenceBreadcrumbSourceEntryId(null);
     setSelectedEntryId(entryId);
     setDetailDialogOpen(true);
   };
@@ -190,6 +196,7 @@ export const CatalogDetailPage = ({
   const handleCloseDetailDialog = () => {
     setDetailDialogOpen(false);
     setSelectedEntryId(null);
+    setCatalogBreadcrumbSourceEntryId(null);
   };
 
   const handleEditFromDetail = () => {
@@ -210,6 +217,11 @@ export const CatalogDetailPage = ({
 
   const handleOpenCatalogEntry = (targetCatalogId: string, targetEntryId: string) => {
     if (targetCatalogId === catalogId) {
+      if (selectedEntryId && selectedEntryId !== targetEntryId) {
+        setCatalogBreadcrumbSourceEntryId(selectedEntryId);
+      } else {
+        setCatalogBreadcrumbSourceEntryId(null);
+      }
       setSelectedEntryId(targetEntryId);
       setDetailDialogOpen(true);
       return;
@@ -218,6 +230,28 @@ export const CatalogDetailPage = ({
     setDetailDialogOpen(false);
     onOpenCatalog?.(targetCatalogId, targetEntryId);
   };
+
+  const handleOpenReferenceEntry = (referenceEntryId: string) => {
+    setDetailDialogOpen(false);
+    setReferenceBreadcrumbSourceEntryId(selectedEntryId);
+    setSelectedReferenceEntryId(referenceEntryId);
+  };
+
+  const handleOpenReferenceEntryFromDialog = (referenceEntryId: string) => {
+    setSelectedReferenceEntryId(referenceEntryId);
+  };
+
+  const handleCloseReferenceEntry = () => {
+    setSelectedReferenceEntryId(null);
+    setReferenceBreadcrumbSourceEntryId(null);
+  };
+
+  const referenceBreadcrumbLabel = referenceBreadcrumbSourceEntryId
+    ? getCatalogEntry(referenceBreadcrumbSourceEntryId)?.displayValue || 'Карточка'
+    : '';
+  const catalogBreadcrumbLabel = catalogBreadcrumbSourceEntryId
+    ? getCatalogEntry(catalogBreadcrumbSourceEntryId)?.displayValue || 'Карточка'
+    : '';
 
   // Получение отображаемого значения поля
   const getFieldDisplayValue = (entry: CatalogEntry, fieldDef: CatalogFieldDef): string => {
@@ -550,9 +584,36 @@ export const CatalogDetailPage = ({
           entryId={selectedEntryId}
           onEdit={handleEditFromDetail}
           onOpenCatalogEntry={handleOpenCatalogEntry}
+          onOpenReferenceEntry={handleOpenReferenceEntry}
           onOpenDeal={handleOpenDeal}
+          breadcrumbsPrefix={catalogBreadcrumbSourceEntryId
+            ? [{
+                label: catalogBreadcrumbLabel,
+                onClick: () => {
+                  setSelectedEntryId(catalogBreadcrumbSourceEntryId);
+                  setCatalogBreadcrumbSourceEntryId(null);
+                },
+              }]
+            : undefined}
         />
       )}
+
+      <ReferenceEntryDetailDialog
+        open={Boolean(selectedReferenceEntryId)}
+        onClose={handleCloseReferenceEntry}
+        entryId={selectedReferenceEntryId}
+        onNavigateToEntry={handleOpenReferenceEntryFromDialog}
+        breadcrumbsPrefix={referenceBreadcrumbSourceEntryId
+          ? [{
+              label: referenceBreadcrumbLabel,
+              onClick: () => {
+                setSelectedReferenceEntryId(null);
+                setSelectedEntryId(referenceBreadcrumbSourceEntryId);
+                setDetailDialogOpen(true);
+              },
+            }]
+          : undefined}
+      />
 
       <DealModal
         open={Boolean(selectedDealId)}

@@ -8,6 +8,7 @@ import {
   Tabs,
   Tab,
   Typography,
+  Breadcrumbs,
   List,
   ListItem,
   ListItemText,
@@ -24,6 +25,7 @@ import {
   Edit as EditIcon,
   Add as AddIcon,
   Business as BusinessIcon,
+  NavigateNext as NavigateNextIcon,
   Link as LinkIcon,
   Receipt as ReceiptIcon,
 } from '@mui/icons-material';
@@ -37,6 +39,10 @@ interface Props {
   entryId: string | null;
   onClose: () => void;
   onNavigateToEntry?: (entryId: string) => void;
+  breadcrumbsPrefix?: Array<{
+    label: string;
+    onClick?: () => void;
+  }>;
 }
 
 interface TabPanelProps {
@@ -66,6 +72,7 @@ export default function ReferenceEntryDetailDialog({
   entryId,
   onClose,
   onNavigateToEntry,
+  breadcrumbsPrefix = [],
 }: Props) {
   const [currentTab, setCurrentTab] = useState(0);
   const { getEntryDetail, getEntry } = useReferenceEntries();
@@ -413,6 +420,42 @@ export default function ReferenceEntryDetailDialog({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
           <BusinessIcon sx={{ color: 'primary.main', fontSize: 32 }} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
+            {breadcrumbsPrefix.length > 0 && (
+              <Breadcrumbs
+                separator={<NavigateNextIcon sx={{ fontSize: 16 }} />}
+                sx={{ mb: 0.5 }}
+                aria-label="Хлебные крошки"
+              >
+                {breadcrumbsPrefix.map((item, index) => (
+                  item.onClick ? (
+                    <Link
+                      key={`${item.label}-${index}`}
+                      component="button"
+                      variant="caption"
+                      onClick={item.onClick}
+                      sx={{
+                        textDecoration: 'none',
+                        color: 'text.secondary',
+                        '&:hover': { textDecoration: 'underline' },
+                      }}
+                    >
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <Typography
+                      key={`${item.label}-${index}`}
+                      variant="caption"
+                      sx={{ color: 'text.secondary' }}
+                    >
+                      {item.label}
+                    </Typography>
+                  )
+                ))}
+                <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 600 }}>
+                  {entryDetail.displayValue}
+                </Typography>
+              </Breadcrumbs>
+            )}
             <Typography variant="h6" noWrap>
               {entryDetail.displayValue}
             </Typography>
