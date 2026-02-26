@@ -79,7 +79,6 @@ export const CatalogEntryDetailDialog = ({
 
   const entry = getEntry(entryId);
   const INITIAL_FIELDS_COUNT = 8;
-  const OVERVIEW_DEALS_COUNT = 3;
   const DEALS_PAGE_SIZE = 15;
 
   // Извлекаем ID контактов из полей типа reference
@@ -440,8 +439,7 @@ export const CatalogEntryDetailDialog = ({
   );
 
   const overviewFields = showAllFields ? filledFields : keyFields.slice(0, 6);
-  const overviewDeals = relatedDeals.slice(0, OVERVIEW_DEALS_COUNT);
-  const visibleDealItems = relatedDeals.slice(0, visibleDealsCount);
+const visibleDealItems = relatedDeals.slice(0, visibleDealsCount);
 
   const renderOverviewTab = () => (
     <Stack spacing={2.5}>

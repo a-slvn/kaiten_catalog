@@ -33,7 +33,7 @@ import {
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import { Catalog, CatalogEntry, Deal } from '../types';
-import { KeyboardEvent, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { AddFieldMenu } from './AddFieldMenu';
 import { ReferenceFieldDisplay } from './ReferenceFieldDisplay';
 import { CatalogFieldSelect } from './CatalogFieldSelect';
@@ -344,20 +344,6 @@ export const DealModal = ({
     }));
   };
 
-  const handleCatalogCardKeyDown = (
-    event: KeyboardEvent<HTMLDivElement>,
-    entryId: string,
-    catalogId: string
-  ) => {
-    if (event.currentTarget !== event.target) {
-      return;
-    }
-
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      setViewingCatalogEntry({ entryId, catalogId });
-    }
-  };
 
   const resolveLinkedDisplayValue = (value: string): string => {
     const referenceEntry = getEntry(value);
