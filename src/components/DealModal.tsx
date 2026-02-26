@@ -28,7 +28,7 @@ import {
   InsertDriveFile as InsertDriveFileIcon,
   Mic as MicIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon,
+  Visibility as VisibilityIcon,
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
@@ -938,27 +938,13 @@ export const DealModal = ({
                                     }}
                                   >
                                     <Box
-                                      onClick={() => handleOpenCatalogEntryFromDetail(field.catalogId!, entry.id)}
-                                      onKeyDown={(event) => handleCatalogCardKeyDown(event, entry.id, field.catalogId!)}
-                                      role="button"
-                                      tabIndex={0}
-                                      aria-label={`Открыть карточку ${entry.displayValue}`}
+                                      onClick={() => toggleCatalogDetails(field.id, entry.id)}
                                       sx={{
                                         border: '1px solid #dde1e7',
                                         borderRadius: 2,
                                         backgroundColor: '#fff',
                                         p: 1.25,
                                         cursor: 'pointer',
-                                        transition: 'border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease',
-                                        '&:hover': {
-                                          borderColor: '#7B1FA2',
-                                          backgroundColor: '#fdf9ff',
-                                        },
-                                        '&:focus-visible': {
-                                          outline: 'none',
-                                          borderColor: '#7B1FA2',
-                                          boxShadow: '0 0 0 3px rgba(123, 31, 162, 0.16)',
-                                        },
                                       }}
                                     >
                                       <Box
@@ -992,29 +978,27 @@ export const DealModal = ({
                                           )}
                                         </Box>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                                          {catalog?.isEditable && (
-                                            <Tooltip title="Редактировать запись">
-                                              <IconButton
-                                                className="edit-catalog-entry-btn"
-                                                size="small"
-                                                onClick={(e) => { e.stopPropagation(); handleEditCatalogEntry(entry.id, field.catalogId!); }}
-                                                aria-label={`Редактировать запись ${entry.displayValue}`}
-                                                sx={{
-                                                  p: 0.35,
-                                                  color: '#999',
-                                                  opacity: { xs: 1, sm: 0 },
-                                                  pointerEvents: { xs: 'auto', sm: 'none' },
-                                                  transition: 'opacity 0.2s ease, color 0.2s ease',
-                                                  '&:hover': {
-                                                    color: '#1976D2',
-                                                    backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                                                  },
-                                                }}
-                                              >
-                                                <EditIcon sx={{ fontSize: 15 }} />
-                                              </IconButton>
-                                            </Tooltip>
-                                          )}
+                                          <Tooltip title="Открыть запись">
+                                            <IconButton
+                                              className="edit-catalog-entry-btn"
+                                              size="small"
+                                              onClick={(e) => { e.stopPropagation(); handleOpenCatalogEntryFromDetail(field.catalogId!, entry.id); }}
+                                              aria-label={`Открыть запись ${entry.displayValue}`}
+                                              sx={{
+                                                p: 0.35,
+                                                color: '#999',
+                                                opacity: { xs: 1, sm: 0 },
+                                                pointerEvents: { xs: 'auto', sm: 'none' },
+                                                transition: 'opacity 0.2s ease, color 0.2s ease',
+                                                '&:hover': {
+                                                  color: '#1976D2',
+                                                  backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                                                },
+                                              }}
+                                            >
+                                              <VisibilityIcon sx={{ fontSize: 15 }} />
+                                            </IconButton>
+                                          </Tooltip>
                                           <Tooltip title={detailsExpanded ? 'Скрыть поля' : 'Показать поля'}>
                                             <IconButton
                                               size="small"

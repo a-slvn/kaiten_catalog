@@ -470,25 +470,6 @@ export const CatalogEntryDetailDialog = ({
         )}
       </Paper>
 
-      <Paper elevation={0} sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1.5 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            Связанные карточки
-          </Typography>
-          <Button size="small" onClick={() => setActiveTab(1)} sx={{ textTransform: 'none' }}>
-            Все карточки
-          </Button>
-        </Box>
-        {overviewDeals.length > 0 ? (
-          <Stack spacing={1.25}>
-            {overviewDeals.map((deal) => renderDealCard(deal, true))}
-          </Stack>
-        ) : (
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Нет связанных карточек
-          </Typography>
-        )}
-      </Paper>
     </Stack>
   );
 
@@ -645,7 +626,7 @@ export const CatalogEntryDetailDialog = ({
         <DialogTitle id="confirm-delete-title">Удалить запись?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Это действие нельзя отменить. Запись "{entry.displayValue}" будет удалена без возможности восстановления.
+            Запись «{entry.displayValue}» будет удалена из каталога без возможности восстановления. Это действие нельзя отменить.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
