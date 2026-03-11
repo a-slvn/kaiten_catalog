@@ -30,14 +30,8 @@ import {
   Add,
   Delete,
   TextFields as TextIcon,
-  Email as EmailIcon,
-  Phone as PhoneIcon,
-  Chat as MessengerIcon,
-  Link as UrlIcon,
   Numbers as NumericIcon,
   List as SelectIcon,
-  LocationOn as AddressIcon,
-  Notes as TextareaIcon,
   AccountTree as ReferenceIcon,
   CalendarMonth as DateIcon,
   Folder as CatalogIcon,
@@ -66,16 +60,6 @@ const CUSTOM_FIELD_TYPES = [
   { value: 'multiselect', label: 'Мульти селект', icon: <SelectIcon fontSize="small" /> },
 ];
 
-// Типы полей, которые можно добавить в справочник
-const REFERENCE_FIELD_TYPES: { type: FieldType; label: string }[] = [
-  { type: 'text', label: 'Строка' },
-  { type: 'url', label: 'Ссылка' },
-  { type: 'email', label: 'Email' },
-  { type: 'phone', label: 'Телефон' },
-  { type: 'select', label: 'Селект' },
-  { type: 'multiselect', label: 'Мульти селект' },
-  { type: 'numeric', label: 'Число' },
-];
 
 const COLOR_PALETTE = [
   // Row 1
@@ -86,33 +70,6 @@ const COLOR_PALETTE = [
   '#FFF9C4',
 ];
 
-const getFieldTypeIcon = (type: FieldType) => {
-  switch (type) {
-    case 'text':
-      return <TextIcon fontSize="small" />;
-    case 'email':
-      return <EmailIcon fontSize="small" />;
-    case 'phone':
-      return <PhoneIcon fontSize="small" />;
-    case 'messenger':
-      return <MessengerIcon fontSize="small" />;
-    case 'url':
-      return <UrlIcon fontSize="small" />;
-    case 'numeric':
-      return <NumericIcon fontSize="small" />;
-    case 'select':
-    case 'multiselect':
-      return <SelectIcon fontSize="small" />;
-    case 'smart_address':
-      return <AddressIcon fontSize="small" />;
-    case 'textarea':
-      return <TextareaIcon fontSize="small" />;
-    case 'reference':
-      return <ReferenceIcon fontSize="small" />;
-    default:
-      return <TextIcon fontSize="small" />;
-  }
-};
 
 export const AddCustomFieldModal = ({
   open,
