@@ -381,7 +381,6 @@ export const AddCustomFieldModal = ({
             </ToggleButton>
             <ToggleButton
               value="use_existing"
-              disabled={catalogs.length === 0}
               sx={{
                 flex: 1,
                 textTransform: 'none',
@@ -394,8 +393,8 @@ export const AddCustomFieldModal = ({
                 },
               }}
             >
-              {catalogs.length > 0 ? 'Из каталога' : 'Нет каталогов'}
-              <Tooltip title={catalogs.length > 0 ? 'База данных с разными типами полей и связями между каталогами. Подходит для сложных структур — например, клиенты, товары, проекты' : 'Сначала создайте каталог в разделе Каталоги'} arrow>
+              Из каталога
+              <Tooltip title="База данных с разными типами полей и связями между каталогами. Подходит для сложных структур — например, клиенты, товары, проекты" arrow>
                 <HelpIcon sx={{ fontSize: 16, color: '#9E9E9E', cursor: 'help' }} />
               </Tooltip>
             </ToggleButton>
