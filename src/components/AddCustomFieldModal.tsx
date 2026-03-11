@@ -22,6 +22,9 @@ import {
   TableRow,
   TableCell,
   Alert,
+  ToggleButtonGroup,
+  ToggleButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Add,
@@ -38,6 +41,7 @@ import {
   AccountTree as ReferenceIcon,
   CalendarMonth as DateIcon,
   Folder as CatalogIcon,
+  HelpOutline as HelpIcon,
 } from '@mui/icons-material';
 import { FieldType } from '../types';
 import { CustomFieldDefinition, ReferenceFieldDef, useCustomFields } from '../context/CustomFieldsContext';
@@ -60,7 +64,6 @@ const CUSTOM_FIELD_TYPES = [
   { value: 'number', label: 'Число', icon: <NumericIcon fontSize="small" /> },
   { value: 'select', label: 'Селект', icon: <SelectIcon fontSize="small" /> },
   { value: 'multiselect', label: 'Мульти селект', icon: <SelectIcon fontSize="small" /> },
-  { value: 'catalog', label: 'Каталог', icon: <CatalogIcon fontSize="small" /> },
 ];
 
 // Типы полей, которые можно добавить в справочник
@@ -122,6 +125,7 @@ export const AddCustomFieldModal = ({
   const { fieldDefinitions } = useCustomFields();
   const { catalogs } = useCatalogs();
   const [fieldType, setFieldType] = useState<string>('reference');
+  const [referenceSource, setReferenceSource] = useState<'create_new' | 'use_existing'>('create_new');
   const [fieldName, setFieldName] = useState('');
   const [showOnCardFacade, setShowOnCardFacade] = useState(true);
   const [usersCanAddValues, setUsersCanAddValues] = useState(true);
@@ -143,7 +147,13 @@ export const AddCustomFieldModal = ({
   useEffect(() => {
     if (open && editMode && fieldToEdit) {
       // Загружаем данные из fieldToEdit
-      setFieldType(fieldToEdit.type);
+      if (fieldToEdit.type === 'catalog') {
+        setFieldType('reference');
+        setReferenceSource('use_existing');
+      } else {
+        setFieldType(fieldToEdit.type);
+        setReferenceSource(fieldToEdit.type === 'reference' ? 'create_new' : 'create_new');
+      }
       setFieldName(fieldToEdit.name);
       setShowOnCardFacade(fieldToEdit.showOnCardFacade);
       setUsersCanAddValues(fieldToEdit.usersCanAddValues);
@@ -159,6 +169,7 @@ export const AddCustomFieldModal = ({
     } else if (open && !editMode) {
       // Если открываем в режиме добавления - сбрасываем поля
       setFieldType('reference');
+      setReferenceSource('create_new');
       setFieldName('');
       setShowOnCardFacade(true);
       setUsersCanAddValues(true);
@@ -260,18 +271,19 @@ export const AddCustomFieldModal = ({
   };
 
   const handleSubmit = () => {
+    const actualType = (fieldType === 'reference' && referenceSource === 'use_existing') ? 'catalog' : fieldType;
     const selectedCatalog = catalogs.find((c) => c.id === catalogId);
     const fieldData = {
       name: fieldName,
-      type: fieldType as CustomFieldDefinition['type'],
+      type: actualType as CustomFieldDefinition['type'],
       showOnCardFacade,
       usersCanAddValues,
       valuesCanHaveColor,
       selectedColor,
-      referenceFields: fieldType === 'reference' ? referenceFields : undefined,
-      catalogId: fieldType === 'catalog' ? catalogId : undefined,
-      catalogName: fieldType === 'catalog' ? (selectedCatalog?.name || '') : undefined,
-      isCatalogMultiple: fieldType === 'catalog' ? isCatalogMultiple : undefined,
+      referenceFields: actualType === 'reference' ? referenceFields : undefined,
+      catalogId: actualType === 'catalog' ? catalogId : undefined,
+      catalogName: actualType === 'catalog' ? (selectedCatalog?.name || '') : undefined,
+      isCatalogMultiple: actualType === 'catalog' ? isCatalogMultiple : undefined,
     };
 
     if (editMode && onUpdate && fieldToEdit) {
@@ -286,6 +298,7 @@ export const AddCustomFieldModal = ({
 
   const handleClose = () => {
     setFieldType('reference');
+    setReferenceSource('create_new');
     setFieldName('');
     setShowOnCardFacade(true);
     setUsersCanAddValues(true);
@@ -299,7 +312,7 @@ export const AddCustomFieldModal = ({
     onClose();
   };
 
-  const isValid = fieldName.trim() !== '' && (fieldType !== 'catalog' || catalogId !== '');
+  const isValid = fieldName.trim() !== '' && !(fieldType === 'reference' && referenceSource === 'use_existing' && catalogId === '');
 
   return (
     <Dialog
@@ -320,7 +333,7 @@ export const AddCustomFieldModal = ({
         </Typography>
 
         {/* Type selector */}
-        <FormControl fullWidth sx={{ mb: 3 }}>
+        <FormControl fullWidth size="small" sx={{ mb: 3 }}>
           <InputLabel
             sx={{
               color: '#7B1FA2',
@@ -368,6 +381,7 @@ export const AddCustomFieldModal = ({
         {/* Name field */}
         <TextField
           fullWidth
+          size="small"
           label="Наименование поля"
           required
           value={fieldName}
@@ -377,13 +391,68 @@ export const AddCustomFieldModal = ({
 
         <Divider sx={{ mb: 2 }} />
 
+        {/* Toggle for reference source selection */}
+        {fieldType === 'reference' && (
+          <ToggleButtonGroup
+            value={referenceSource}
+            exclusive
+            onChange={(_, value) => {
+              if (value !== null) setReferenceSource(value);
+            }}
+            fullWidth
+            size="small"
+            sx={{ mb: 3 }}
+          >
+            <ToggleButton
+              value="create_new"
+              sx={{
+                flex: 1,
+                textTransform: 'none',
+                gap: 0.5,
+                '&.Mui-selected': {
+                  color: '#7B1FA2',
+                  borderColor: '#7B1FA2',
+                  backgroundColor: 'rgba(123, 31, 162, 0.04)',
+                  '&:hover': { backgroundColor: 'rgba(123, 31, 162, 0.08)' },
+                },
+              }}
+            >
+              Новый справочник
+              <Tooltip title="Простой список записей с текстовыми полями. Подходит для небольших наборов данных — например, список менеджеров или статусов" arrow>
+                <HelpIcon sx={{ fontSize: 16, color: '#9E9E9E', cursor: 'help' }} />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton
+              value="use_existing"
+              disabled={catalogs.length === 0}
+              sx={{
+                flex: 1,
+                textTransform: 'none',
+                gap: 0.5,
+                '&.Mui-selected': {
+                  color: '#7B1FA2',
+                  borderColor: '#7B1FA2',
+                  backgroundColor: 'rgba(123, 31, 162, 0.04)',
+                  '&:hover': { backgroundColor: 'rgba(123, 31, 162, 0.08)' },
+                },
+              }}
+            >
+              {catalogs.length > 0 ? 'Из каталога' : 'Нет каталогов'}
+              <Tooltip title={catalogs.length > 0 ? 'База данных с разными типами полей и связями между каталогами. Подходит для сложных структур — например, клиенты, товары, проекты' : 'Сначала создайте каталог в разделе Каталоги'} arrow>
+                <HelpIcon sx={{ fontSize: 16, color: '#9E9E9E', cursor: 'help' }} />
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
+        )}
+
         {/* Checkboxes */}
 
-        {fieldType !== 'catalog' && (
+        {!(fieldType === 'reference' && referenceSource === 'use_existing') && (
           <Box sx={{ mb: 2 }}>
             <FormControlLabel
               control={
                 <Checkbox
+                  size="small"
                   checked={usersCanAddValues}
                   onChange={(e) => setUsersCanAddValues(e.target.checked)}
                   sx={{
@@ -397,12 +466,13 @@ export const AddCustomFieldModal = ({
           </Box>
         )}
 
-        {fieldType !== 'catalog' && (
+        {!(fieldType === 'reference' && referenceSource === 'use_existing') && (
           <>
             <Box sx={{ mb: 2 }}>
               <FormControlLabel
                 control={
                   <Checkbox
+                    size="small"
                     checked={valuesCanHaveColor}
                     onChange={(e) => setValuesCanHaveColor(e.target.checked)}
                     sx={{
@@ -412,6 +482,23 @@ export const AddCustomFieldModal = ({
                   />
                 }
                 label="Значениям можно добавлять цвет"
+              />
+            </Box>
+
+            <Box sx={{ mb: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={showOnCardFacade}
+                    onChange={(e) => setShowOnCardFacade(e.target.checked)}
+                    sx={{
+                      color: '#7B1FA2',
+                      '&.Mui-checked': { color: '#7B1FA2' },
+                    }}
+                  />
+                }
+                label="Показывать на фасаде карточек"
               />
             </Box>
 
@@ -443,11 +530,11 @@ export const AddCustomFieldModal = ({
           </>
         )}
 
-        {/* Reference fields section - only for 'reference' type */}
-        {fieldType === 'reference' && (
+        {/* Reference fields section - only for 'reference' type with 'create_new' */}
+        {fieldType === 'reference' && referenceSource === 'create_new' && (
           <>
             <Typography variant="subtitle1" sx={{ color: '#757575', mb: 1, mt: 2 }}>
-              Поля справочника
+              Структура справочника
             </Typography>
 
             <Button
@@ -469,16 +556,13 @@ export const AddCustomFieldModal = ({
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 500, color: '#757575', width: '40%' }}>
+                  <TableCell sx={{ fontWeight: 500, color: '#757575', width: '60%' }}>
                     Поле
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 500, color: '#757575', width: '35%' }}>
-                    Тип
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 500, color: '#757575', width: '15%' }}>
+                  <TableCell sx={{ fontWeight: 500, color: '#757575', width: '25%' }}>
                     Обязательное
                   </TableCell>
-                  <TableCell sx={{ width: '10%' }} />
+                  <TableCell sx={{ width: '15%' }} />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -502,34 +586,6 @@ export const AddCustomFieldModal = ({
                             },
                           }}
                         />
-                      </TableCell>
-                      <TableCell>
-                        <FormControl size="small" fullWidth>
-                          <Select
-                            value={field.type}
-                            onChange={(e) =>
-                              handleReferenceFieldChange(field.id, 'type', e.target.value as FieldType)
-                            }
-                            renderValue={(value) => {
-                              const fieldDef = REFERENCE_FIELD_TYPES.find((t) => t.type === value);
-                              return (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  {getFieldTypeIcon(value as FieldType)}
-                                  <span>{fieldDef?.label}</span>
-                                </Box>
-                              );
-                            }}
-                          >
-                            {REFERENCE_FIELD_TYPES.map((type) => (
-                              <MenuItem key={type.type} value={type.type}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  {getFieldTypeIcon(type.type)}
-                                  <span>{type.label}</span>
-                                </Box>
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
                       </TableCell>
                       <TableCell align="center">
                         <Checkbox
@@ -559,7 +615,7 @@ export const AddCustomFieldModal = ({
                     {/* Дополнительная строка для настройки reference и multiselect полей */}
                     {(field.type === 'reference' || field.type === 'multiselect') && (
                       <TableRow key={`${field.id}-ref-config`}>
-                        <TableCell colSpan={4} sx={{ backgroundColor: '#F5F5F5', py: 2 }}>
+                        <TableCell colSpan={3} sx={{ backgroundColor: '#F5F5F5', py: 2 }}>
                           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', px: 2 }}>
                             <FormControl size="small" sx={{ minWidth: 250 }}>
                               <InputLabel
@@ -638,14 +694,14 @@ export const AddCustomFieldModal = ({
           </>
         )}
 
-        {/* Catalog fields section - only for 'catalog' type */}
-        {fieldType === 'catalog' && (
+        {/* Catalog fields section - for 'reference' type with 'use_existing' */}
+        {fieldType === 'reference' && referenceSource === 'use_existing' && (
           <>
             <Typography variant="subtitle1" sx={{ color: '#757575', mb: 1, mt: 2 }}>
-              Настройки каталога
+              Привязка к каталогу
             </Typography>
 
-            <FormControl fullWidth sx={{ mb: 2 }}>
+            <FormControl fullWidth size="small" sx={{ mb: 2 }}>
               <InputLabel
                 sx={{
                   color: '#7B1FA2',
