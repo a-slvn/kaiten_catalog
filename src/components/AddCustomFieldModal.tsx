@@ -22,6 +22,7 @@ import {
   TableRow,
   TableCell,
   Alert,
+  FormHelperText,
   ToggleButtonGroup,
   ToggleButton,
   Tooltip,
@@ -670,6 +671,16 @@ export const AddCustomFieldModal = ({
                 value={catalogId}
                 onChange={(e) => handleCatalogIdChange(e.target.value)}
                 label="Каталог"
+                renderValue={(value) => {
+                  const selected = catalogs.find((c) => c.id === value);
+                  if (!selected) return '';
+                  return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CatalogIcon fontSize="small" />
+                      <span>{selected.name}</span>
+                    </Box>
+                  );
+                }}
                 sx={{
                   '& .MuiOutlinedInput-notchedOutline': {
                     borderColor: '#7B1FA2',
@@ -691,13 +702,34 @@ export const AddCustomFieldModal = ({
                     <MenuItem key={catalog.id} value={catalog.id}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <CatalogIcon fontSize="small" />
-                        <span>{catalog.name}</span>
+                        <Box>
+                          <Typography variant="body2">{catalog.name}</Typography>
+                          <Typography variant="caption" sx={{ color: '#9E9E9E' }}>
+                            {[
+                              catalog.isMultiple ? 'Множественный выбор' : 'Одиночный выбор',
+                              catalog.isEditable ? 'Редактируемый' : 'Только чтение',
+                            ].join(' · ')}
+                          </Typography>
+                        </Box>
                       </Box>
                     </MenuItem>
                   ))
                 )}
               </Select>
+              {catalogId && (() => {
+                const selected = catalogs.find((c) => c.id === catalogId);
+                if (!selected) return null;
+                return (
+                  <FormHelperText>
+                    {[
+                      selected.isMultiple ? 'Множественный выбор' : 'Одиночный выбор',
+                      selected.isEditable ? 'Редактируемый' : 'Только чтение',
+                    ].join(' · ')}
+                  </FormHelperText>
+                );
+              })()}
             </FormControl>
+
           </>
         )}
 
